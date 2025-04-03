@@ -107,7 +107,8 @@ def fetch_liquidations(
         "end_timestamp": end_ts_ms,
     }
     try:
-        response = requests.get(LIQUIDATION_API_BASE_URL, params=params)
+        # Set a longer timeout (e.g., 60 seconds)
+        response = requests.get(LIQUIDATION_API_BASE_URL, params=params, timeout=60)
         response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
         data = response.json()
         if not data:
@@ -172,8 +173,12 @@ def prepare_data(
     # Resample/aggregate liquidation sizes to match the OHLCV timeframe
     # 'label='left'' aligns the aggregated value with the start of the interval (matching OHLCV index)
     # 'closed='left'' means the interval is [start, end)
-    agg_buy = buy_liq.resample(timeframe, label="left", closed="left").sum()
-    agg_sell = sell_liq.resample(timeframe, label="left", closed="left").sum()
+    # Map 'm' (minute) timeframe from ccxt to 'T' (minute) for pandas resampling to avoid FutureWarning
+    resample_freq = (
+        timeframe.replace("m", "T") if timeframe.endswith("m") else timeframe
+    )
+    agg_buy = buy_liq.resample(resample_freq, label="left", closed="left").sum()
+    agg_sell = sell_liq.resample(resample_freq, label="left", closed="left").sum()
 
     # Merge aggregated liquidations into the OHLCV dataframe
     merged_df = ohlcv_df.join(agg_buy.rename("Liq_Buy_Size")).join(
