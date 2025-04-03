@@ -1,0 +1,4 @@
+backtesting
+pandas
+ccxt
+requests
