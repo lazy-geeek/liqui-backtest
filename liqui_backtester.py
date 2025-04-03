@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 from datetime import datetime, timezone
 from backtesting import Backtest
@@ -6,39 +7,66 @@ from backtesting import Backtest
 import data_fetcher
 from strategies import LiquidationStrategy  # Import the specific strategy class
 
-# --- Configuration ---
-SYMBOL = "SUIUSDT"
-TIMEFRAME = "5m"
-# Q1 2025 - Note: end_date is exclusive in fetchers, so use April 1st
-START_DATE = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-END_DATE = datetime(2025, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
+# --- Configuration Loading ---
+CONFIG_FILE = "config.json"
 
-INITIAL_CASH = 10000  # Starting capital for the backtest
-COMMISSION_FEE = 0.0004  # Example commission rate for Binance Futures (Taker: 0.04%)
 
-# Strategy parameters (can be overridden here or optimized later)
-# Using defaults from LiquidationStrategy for now
-STRATEGY_PARAMS = {
-    # 'buy_liq_threshold': 6000, # Example override
-    # 'sl_pct': 0.8,             # Example override
-}
+def load_config(config_path: str) -> dict:
+    """Loads configuration from a JSON file."""
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+        print(f"Configuration loaded successfully from {config_path}")
+        return config
+    except FileNotFoundError:
+        print(f"Error: Configuration file not found at {config_path}")
+        exit()
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from {config_path}")
+        exit()
+    except Exception as e:
+        print(f"An unexpected error occurred loading config: {e}")
+        exit()
+
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    config = load_config(CONFIG_FILE)
+
+    # Extract settings from config
+    backtest_settings = config.get("backtest_settings", {})
+    strategy_params = config.get("strategy_parameters", {})
+
+    # Parse backtest settings
+    symbol = backtest_settings.get("symbol", "SUIUSDT")
+    timeframe = backtest_settings.get("timeframe", "5m")
+    try:
+        start_date_str = backtest_settings.get("start_date_iso", "2025-01-01T00:00:00Z")
+        end_date_str = backtest_settings.get("end_date_iso", "2025-04-01T00:00:00Z")
+        # Ensure timezone-aware datetime objects
+        start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
+        end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
+    except ValueError as e:
+        print(f"Error parsing date strings from config: {e}")
+        exit()
+
+    initial_cash = backtest_settings.get("initial_cash", 10000)
+    commission_pct = backtest_settings.get("commission_percentage", 0.04)
+    # Convert commission percentage to decimal for backtesting.py
+    commission_decimal = commission_pct / 100.0
+
     print("--- Starting Liquidation Backtester ---")
-    print(f"Symbol: {SYMBOL}")
-    print(f"Timeframe: {TIMEFRAME}")
-    print(f"Period: {START_DATE} to {END_DATE}")
-    print(f"Initial Cash: ${INITIAL_CASH:,.2f}")
-    print(f"Commission: {COMMISSION_FEE*100:.4f}%")
-    print(
-        f"Strategy Params: {STRATEGY_PARAMS if STRATEGY_PARAMS else 'Using defaults'}"
-    )
+    print(f"Symbol: {symbol}")
+    print(f"Timeframe: {timeframe}")
+    print(f"Period: {start_date} to {end_date}")
+    print(f"Initial Cash: ${initial_cash:,.2f}")
+    print(f"Commission: {commission_pct:.4f}% ({commission_decimal:.6f} decimal)")
+    print(f"Strategy Params: {strategy_params}")
     print("-" * 30)
 
     # 1. Fetch and Prepare Data
     print("Preparing data...")
-    data = data_fetcher.prepare_data(SYMBOL, TIMEFRAME, START_DATE, END_DATE)
+    data = data_fetcher.prepare_data(symbol, timeframe, start_date, end_date)
 
     if data.empty:
         print("No data available for backtesting. Exiting.")
@@ -68,8 +96,8 @@ if __name__ == "__main__":
     bt = Backtest(
         data,
         LiquidationStrategy,
-        cash=INITIAL_CASH,
-        commission=COMMISSION_FEE,
+        cash=initial_cash,
+        commission=commission_decimal,
         # exclusive_orders=True # Consider if you want only one order type active at a time
         # trade_on_close=False # Default: trade on next bar's open. Set True to trade on current bar's close.
     )
@@ -78,8 +106,8 @@ if __name__ == "__main__":
 
     # 3. Run Backtest
     print("Running backtest...")
-    # Pass strategy parameters to the run method if any are defined
-    stats = bt.run(**STRATEGY_PARAMS)
+    # Pass strategy parameters loaded from config to the run method
+    stats = bt.run(**strategy_params)
     print("Backtest finished.")
     print("-" * 30)
 
@@ -94,7 +122,10 @@ if __name__ == "__main__":
     # print("-" * 30)
 
     # 5. Save Plot (Optional)
-    plot_filename = f"backtest_{SYMBOL}_{TIMEFRAME}_Q1-2025.html"
+    # Generate filename based on config settings
+    start_str = start_date.strftime("%Y%m%d")
+    end_str = end_date.strftime("%Y%m%d")
+    plot_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
     print(f"Saving plot to {plot_filename}...")
     try:
         bt.plot(filename=plot_filename, open_browser=False)

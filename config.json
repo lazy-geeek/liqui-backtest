@@ -1,0 +1,18 @@
+{
+    "backtest_settings": {
+        "symbol": "SUIUSDT",
+        "timeframe": "5m",
+        "start_date_iso": "2025-01-01T00:00:00Z",
+        "end_date_iso": "2025-04-01T00:00:00Z",
+        "initial_cash": 10000,
+        "commission_percentage": 0.04
+    },
+    "strategy_parameters": {
+        "buy_liquidation_threshold_usd": 5000,
+        "sell_liquidation_threshold_usd": 5000,
+        "stop_loss_percentage": 1.0,
+        "take_profit_percentage": 2.0,
+        "exit_on_opposite_signal": false,
+        "slippage_percentage_per_side": 0.05
+    }
+}
