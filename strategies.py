@@ -47,26 +47,54 @@ class LiquidationStrategy(Strategy):
         Define the logic executed at each data point (candle).
         """
         current_price = self.price[-1]
-        buy_signal = self.buy_liq[-1] > self.buy_liquidation_threshold_usd
-        sell_signal = self.sell_liq[-1] > self.sell_liquidation_threshold_usd
+        buy_signal = self.data.Liq_Buy_Size[-1] > self.buy_liquidation_threshold_usd
+        sell_signal = self.data.Liq_Sell_Size[-1] > self.sell_liquidation_threshold_usd
+        # --- DEBUG PRINTS ---
+        # --- DEBUG PRINTS ---
+        print(
+            f"{self.data.index[-1]} | "
+            f"BuyLiq: {self.data.Liq_Buy_Size[-1]:,.0f}, SellLiq: {self.data.Liq_Sell_Size[-1]:,.0f} | "  # Use self.data directly
+            f"BuySig: {buy_signal}, SellSig: {sell_signal} | "
+            f"InPos: {bool(self.position)}"
+        )
+        # --- END DEBUG ---
 
         # --- Entry Logic ---
         # Only enter if not already in a position
         if not self.position:
             if buy_signal:
                 # Calculate SL and TP prices considering slippage for entry
-                entry_price = current_price * (1 + self.entry_slippage)
-                sl_price = entry_price * (1 - self.stop_loss_percentage / 100.0)
-                tp_price = entry_price * (1 + self.take_profit_percentage / 100.0)
-                self.buy(sl=sl_price, tp=tp_price)
+                # Calculate SL and TP based on current price, let broker handle execution slippage
+                sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
+                tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
+                entry_price = current_price * (
+                    1 + self.entry_slippage
+                )  # Keep for debug print consistency
+                # Calculate size based on 10% equity risk
+                size_usd = self.equity * 0.10
+                size_units = size_usd / current_price
+                print(
+                    f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_units:.4f} units | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                )
+                self.buy(
+                    size=size_units, sl=sl_price, tp=tp_price
+                )  # Restore sl/tp and add size
                 # print(f"{self.data.index[-1]} LONG Entry | Price: {entry_price:.4f} | Liq: {self.buy_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
             elif sell_signal:
                 # Calculate SL and TP prices considering slippage for entry
-                entry_price = current_price * (1 - self.entry_slippage)
-                sl_price = entry_price * (1 + self.stop_loss_percentage / 100.0)
-                tp_price = entry_price * (1 - self.take_profit_percentage / 100.0)
-                self.sell(sl=sl_price, tp=tp_price)
+                # Calculate SL and TP based on current price, let broker handle execution slippage
+                sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
+                tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
+                entry_price = current_price * (
+                    1 - self.entry_slippage
+                )  # Keep for debug print consistency
+                # Use fraction of equity for size, as expected by backtesting.py
+                size_fraction = 0.10  # 10% of equity
+                print(
+                    f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                )
+                self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
                 # print(f"{self.data.index[-1]} SHORT Entry | Price: {entry_price:.4f} | Liq: {self.sell_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
         # --- Exit Logic ---
