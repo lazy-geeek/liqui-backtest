@@ -175,3 +175,6 @@ cython_debug/
 todos.md
 
 backtest*.html
+PLAN.md
+
+cache/

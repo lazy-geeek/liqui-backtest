@@ -2,3 +2,4 @@ backtesting
 pandas
 ccxt
 requests
+pyarrow

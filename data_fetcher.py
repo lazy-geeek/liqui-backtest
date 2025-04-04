@@ -2,6 +2,11 @@ import ccxt
 import requests
 import pandas as pd
 from datetime import datetime, timezone
+import os
+from pathlib import Path
+
+# Define Cache Directory
+CACHE_DIR = Path("cache")
 
 # Define the API base URL
 LIQUIDATION_API_BASE_URL = "http://liqui-api.endor.lazy-geek.net/api/liquidations"
@@ -11,7 +16,7 @@ def fetch_ohlcv(
     symbol: str, timeframe: str, start_dt: datetime, end_dt: datetime
 ) -> pd.DataFrame:
     """
-    Fetches OHLCV data from Binance using ccxt.
+    Fetches OHLCV data from Binance using ccxt, utilizing a local Parquet cache.
 
     Args:
         symbol: Trading symbol (e.g., 'SUIUSDT').
@@ -23,8 +28,31 @@ def fetch_ohlcv(
         Pandas DataFrame with OHLCV data, indexed by datetime.
         Columns: ['Open', 'High', 'Low', 'Close', 'Volume']
     """
+    # Ensure cache directory exists
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Generate cache filename
+    start_ts = int(start_dt.timestamp() * 1000)
+    end_ts = int(end_dt.timestamp() * 1000)
+    cache_file = CACHE_DIR / f"{symbol}_{timeframe}_ohlcv_{start_ts}_{end_ts}.parquet"
+
+    # Check cache first
+    if cache_file.exists():
+        try:
+            print(f"Cache hit: Loading OHLCV data from {cache_file}")
+            df = pd.read_parquet(cache_file)
+            # Ensure index is datetime after loading from parquet
+            if not pd.api.types.is_datetime64_any_dtype(df.index):
+                df.index = pd.to_datetime(df.index, utc=True)
+            # Filter exact date range again after loading from cache
+            df = df[(df.index >= start_dt) & (df.index < end_dt)]
+            print(f"Loaded {len(df)} OHLCV candles from cache.")
+            return df
+        except Exception as e:
+            print(f"Error reading cache file {cache_file}: {e}. Fetching from API.")
+
     print(
-        f"Fetching OHLCV data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
+        f"Cache miss: Fetching OHLCV data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
     )
     exchange = ccxt.binance()  # Using Binance public API
     start_ms = int(start_dt.timestamp() * 1000)
@@ -74,7 +102,13 @@ def fetch_ohlcv(
     df = df.set_index("Timestamp")
     # Filter exact date range (fetch_ohlcv 'since' might include earlier data point)
     df = df[(df.index >= start_dt) & (df.index < end_dt)]
-    print(f"Fetched {len(df)} OHLCV candles.")
+    print(f"Fetched {len(df)} OHLCV candles from API.")
+    # Save to cache
+    try:
+        df.to_parquet(cache_file)
+        print(f"Saved OHLCV data to cache: {cache_file}")
+    except Exception as e:
+        print(f"Error saving OHLCV data to cache file {cache_file}: {e}")
     return df
 
 
@@ -82,7 +116,7 @@ def fetch_liquidations(
     symbol: str, timeframe: str, start_dt: datetime, end_dt: datetime
 ) -> pd.DataFrame:
     """
-    Fetches liquidation data from the custom API.
+    Fetches liquidation data from the custom API, utilizing a local Parquet cache.
 
     Args:
         symbol: Trading symbol (e.g., 'SUIUSDT').
@@ -94,8 +128,36 @@ def fetch_liquidations(
         Pandas DataFrame with liquidation data.
         Columns: ['timestamp', 'timestamp_iso', 'side', 'cumulated_usd_size']
     """
+    # Ensure cache directory exists
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Generate cache filename
+    start_ts_ms = int(start_dt.timestamp() * 1000)
+    end_ts_ms = int(end_dt.timestamp() * 1000)
+    cache_file = (
+        CACHE_DIR
+        / f"{symbol}_{timeframe}_liquidations_{start_ts_ms}_{end_ts_ms}.parquet"
+    )
+
+    # Check cache first
+    if cache_file.exists():
+        try:
+            print(f"Cache hit: Loading liquidation data from {cache_file}")
+            df = pd.read_parquet(cache_file)
+            # Ensure timestamp column is datetime after loading from parquet
+            if "timestamp" in df.columns and not pd.api.types.is_datetime64_any_dtype(
+                df["timestamp"]
+            ):
+                df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            # Filter exact date range again after loading from cache
+            df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] < end_dt)]
+            print(f"Loaded {len(df)} liquidation records from cache.")
+            return df
+        except Exception as e:
+            print(f"Error reading cache file {cache_file}: {e}. Fetching from API.")
+
     print(
-        f"Fetching liquidation data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
+        f"Cache miss: Fetching liquidation data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
     )
     start_ts_ms = int(start_dt.timestamp() * 1000)
     end_ts_ms = int(end_dt.timestamp() * 1000)
@@ -119,7 +181,18 @@ def fetch_liquidations(
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         # Ensure timestamp_iso is also parsed if needed later, though we primarily use 'timestamp'
         # df['timestamp_iso'] = pd.to_datetime(df['timestamp_iso'], utc=True)
-        print(f"Fetched {len(df)} liquidation records.")
+        print(f"Fetched {len(df)} liquidation records from API.")
+        # Save to cache
+        try:
+            # Drop timestamp_iso if it exists and causes issues with parquet
+            if "timestamp_iso" in df.columns:
+                df_to_save = df.drop(columns=["timestamp_iso"])
+            else:
+                df_to_save = df
+            df_to_save.to_parquet(cache_file)
+            print(f"Saved liquidation data to cache: {cache_file}")
+        except Exception as e:
+            print(f"Error saving liquidation data to cache file {cache_file}: {e}")
         return df
 
     except requests.exceptions.RequestException as e:
