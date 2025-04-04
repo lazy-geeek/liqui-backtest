@@ -2,6 +2,7 @@ import json
 import pandas as pd
 from datetime import datetime, timezone
 from backtesting import Backtest
+from termcolor import colored
 
 # Import our custom modules
 import data_fetcher
@@ -89,6 +90,55 @@ if __name__ == "__main__":
         exit()
 
     print(f"Data prepared. Shape: {data.shape}")
+    print("-" * 30)
+
+    # Calculate and print liquidation statistics for the setup period
+    print("--- Liquidation Statistics (Setup Period) ---")
+    try:
+        # Using the full dataset as the setup period as requested
+        buy_liq = data["Liq_Buy_Size"]
+        sell_liq = data["Liq_Sell_Size"]
+
+        # Calculate stats
+        # Max includes all values (including zero)
+        max_buy = buy_liq.max() if not buy_liq.isnull().all() else 0
+        max_sell = sell_liq.max() if not sell_liq.isnull().all() else 0
+
+        # Filter out zeros for avg and median calculations
+        buy_liq_nonzero = buy_liq[buy_liq > 0]
+        sell_liq_nonzero = sell_liq[sell_liq > 0]
+
+        # Calculate avg and median on non-zero data, defaulting to 0 if the filtered series is empty
+        avg_buy = buy_liq_nonzero.mean() if not buy_liq_nonzero.empty else 0
+        med_buy = buy_liq_nonzero.median() if not buy_liq_nonzero.empty else 0
+        avg_sell = sell_liq_nonzero.mean() if not sell_liq_nonzero.empty else 0
+        med_sell = sell_liq_nonzero.median() if not sell_liq_nonzero.empty else 0
+
+        # Print stats with color
+        print(
+            colored(
+                f"Buy Liquidation  - Max: {max_buy:,.2f}, Avg: {avg_buy:,.2f}, Median: {med_buy:,.2f}",
+                "green",
+            )
+        )
+        print(
+            colored(
+                f"Sell Liquidation - Max: {max_sell:,.2f}, Avg: {avg_sell:,.2f}, Median: {med_sell:,.2f}",
+                "red",
+            )
+        )
+
+    except KeyError as e:
+        print(
+            colored(f"Error calculating liquidation stats: Missing column {e}", "red")
+        )
+    except Exception as e:
+        print(
+            colored(
+                f"An unexpected error occurred during liquidation stat calculation: {e}",
+                "red",
+            )
+        )
     print("-" * 30)
 
     # 2. Initialize Backtest
