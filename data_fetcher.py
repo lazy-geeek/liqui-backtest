@@ -247,11 +247,16 @@ def prepare_data(
     # 'label='left'' aligns the aggregated value with the start of the interval (matching OHLCV index)
     # 'closed='left'' means the interval is [start, end)
     # Map 'm' (minute) timeframe from ccxt to 'T' (minute) for pandas resampling to avoid FutureWarning
+    # Map 'm' (minute) timeframe from ccxt to 'min' for pandas resampling
     resample_freq = (
-        timeframe.replace("m", "T") if timeframe.endswith("m") else timeframe
+        timeframe.replace("m", "min") if timeframe.endswith("m") else timeframe
     )
-    agg_buy = buy_liq.resample(resample_freq, label="left", closed="left").sum()
-    agg_sell = sell_liq.resample(resample_freq, label="left", closed="left").sum()
+    agg_buy = buy_liq.resample(
+        resample_freq, label="left", closed="left"
+    ).sum()  # Use 'min' instead of 'T'
+    agg_sell = sell_liq.resample(
+        resample_freq, label="left", closed="left"
+    ).sum()  # Use 'min' instead of 'T'
 
     # Merge aggregated liquidations into the OHLCV dataframe
     merged_df = ohlcv_df.join(agg_buy.rename("Liq_Buy_Size")).join(

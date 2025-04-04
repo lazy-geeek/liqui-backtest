@@ -128,7 +128,7 @@ if __name__ == "__main__":
     plot_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
     print(f"Saving plot to {plot_filename}...")
     try:
-        bt.plot(filename=plot_filename, open_browser=False)
+        bt.plot(filename=plot_filename, open_browser=False, resample="1h")
         print("Plot saved successfully.")
     except Exception as e:
         print(f"Could not save plot: {e}")
