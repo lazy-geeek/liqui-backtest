@@ -20,6 +20,7 @@ class LiquidationStrategy(Strategy):
     exit_on_opposite_signal = False
     slippage_percentage_per_side = 0.05
     position_size_fraction = 0.01
+    debug_mode = False
 
     def init(self):
         """
@@ -55,12 +56,13 @@ class LiquidationStrategy(Strategy):
         sell_signal = sell_liq_size > self.sell_liquidation_threshold_usd
         # --- DEBUG PRINTS ---
         # --- DEBUG PRINTS ---
-        print(
-            f"{self.data.index[-1]} | "
-            f"BuyLiq: {self.data.Liq_Buy_Size[-1]:,.0f}, SellLiq: {self.data.Liq_Sell_Size[-1]:,.0f} | "  # Use self.data directly
-            f"BuySig: {buy_signal}, SellSig: {sell_signal} | "
-            f"InPos: {bool(self.position)}"
-        )
+        if self.debug_mode:
+            print(
+                f"{self.data.index[-1]} | "
+                f"BuyLiq: {self.data.Liq_Buy_Size[-1]:,.0f}, SellLiq: {self.data.Liq_Sell_Size[-1]:,.0f} | "  # Use self.data directly
+                f"BuySig: {buy_signal}, SellSig: {sell_signal} | "
+                f"InPos: {bool(self.position)}"
+            )
         # --- END DEBUG ---
 
         # --- Entry Logic ---
@@ -79,9 +81,10 @@ class LiquidationStrategy(Strategy):
                 # Recalculate SL and TP to ensure proper ordering
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                print(
-                    f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                )
+                if self.debug_mode:
+                    print(
+                        f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                    )
                 self.buy(
                     size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
                 )
@@ -97,10 +100,13 @@ class LiquidationStrategy(Strategy):
                 )  # Keep for debug print consistency
                 # Use fraction of equity for size, as expected by backtesting.py
                 size_fraction = self.position_size_fraction
-                print(
-                    f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                if self.debug_mode:
+                    print(
+                        f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                    )
+                self.sell(
+                    size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
                 )
-                self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
                 # print(f"{self.data.index[-1]} SHORT Entry | Price: {entry_price:.4f} | Liq: {self.sell_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
         # --- Exit Logic ---

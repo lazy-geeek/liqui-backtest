@@ -37,6 +37,7 @@ if __name__ == "__main__":
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
     strategy_params = config.get("strategy_parameters", {})
+    app_settings = config.get("app_settings", {})
 
     # Parse backtest settings
     symbol = backtest_settings.get("symbol", "SUIUSDT")
@@ -63,6 +64,10 @@ if __name__ == "__main__":
     print(f"Initial Cash: ${initial_cash:,.2f}")
     print(f"Commission: {commission_pct:.4f}% ({commission_decimal:.6f} decimal)")
     print(f"Strategy Params: {strategy_params}")
+
+    # Add debug_mode from app_settings to strategy_params
+    debug_mode = app_settings.get("debug_mode", False)
+    strategy_params["debug_mode"] = debug_mode
     print("-" * 30)
 
     # 1. Fetch and Prepare Data

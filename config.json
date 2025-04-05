@@ -15,5 +15,8 @@
         "exit_on_opposite_signal": false,
         "slippage_percentage_per_side": 0.05,
         "position_size_fraction": 0.01
+    },
+    "app_settings": {
+        "debug_mode": false
     }
 }
