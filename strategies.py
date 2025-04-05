@@ -50,16 +50,15 @@ class LiquidationStrategy(Strategy):
         Define the logic executed at each data point (candle).
         """
         current_price = self.price[-1]
-        buy_liq_size = self.data.Liq_Buy_Size[-1]
-        sell_liq_size = self.data.Liq_Sell_Size[-1]
-        buy_signal = buy_liq_size > self.buy_liquidation_threshold_usd
-        sell_signal = sell_liq_size > self.sell_liquidation_threshold_usd
-        # --- DEBUG PRINTS ---
+        buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
+        sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
+        buy_signal = buy_liq_agg > self.buy_liquidation_threshold_usd
+        sell_signal = sell_liq_agg > self.sell_liquidation_threshold_usd
         # --- DEBUG PRINTS ---
         if self.debug_mode:
             print(
                 f"{self.data.index[-1]} | "
-                f"BuyLiq: {self.data.Liq_Buy_Size[-1]:,.0f}, SellLiq: {self.data.Liq_Sell_Size[-1]:,.0f} | "  # Use self.data directly
+                f"BuyLiqAgg: {buy_liq_agg:,.0f}, SellLiqAgg: {sell_liq_agg:,.0f} | "
                 f"BuySig: {buy_signal}, SellSig: {sell_signal} | "
                 f"InPos: {bool(self.position)}"
             )

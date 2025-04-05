@@ -72,7 +72,18 @@ if __name__ == "__main__":
 
     # 1. Fetch and Prepare Data
     print("Preparing data...")
-    data = data_fetcher.prepare_data(symbol, timeframe, start_date, end_date)
+
+    liquidation_aggregation_minutes = backtest_settings.get(
+        "liquidation_aggregation_minutes", 5
+    )
+
+    data = data_fetcher.prepare_data(
+        symbol,
+        timeframe,
+        start_date,
+        end_date,
+        liquidation_aggregation_minutes=liquidation_aggregation_minutes,
+    )
 
     if data.empty:
         print("No data available for backtesting. Exiting.")

@@ -204,20 +204,26 @@ def fetch_liquidations(
 
 
 def prepare_data(
-    symbol: str, timeframe: str, start_dt: datetime, end_dt: datetime
+    symbol: str,
+    timeframe: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    liquidation_aggregation_minutes: int = 5,
 ) -> pd.DataFrame:
     """
     Fetches OHLCV and liquidation data, then merges them.
 
     Args:
         symbol: Trading symbol (e.g., 'SUIUSDT').
-        timeframe: Timeframe string (e.g., '5m').
+        timeframe: Timeframe string (e.g., '1m').
         start_dt: Start datetime object (timezone-aware).
         end_dt: End datetime object (timezone-aware).
+        liquidation_aggregation_minutes: Number of minutes over which to aggregate liquidation sums.
 
     Returns:
         Pandas DataFrame with OHLCV data merged with aggregated liquidation sizes.
-        Columns: ['Open', 'High', 'Low', 'Close', 'Volume', 'Liq_Buy_Size', 'Liq_Sell_Size']
+        Columns: ['Open', 'High', 'Low', 'Close', 'Volume', 'Liq_Buy_Size', 'Liq_Sell_Size',
+                  'Liq_Buy_Aggregated', 'Liq_Sell_Aggregated']
     """
     ohlcv_df = fetch_ohlcv(symbol, timeframe, start_dt, end_dt)
     liq_df = fetch_liquidations(symbol, timeframe, start_dt, end_dt)
@@ -232,41 +238,39 @@ def prepare_data(
         )
         ohlcv_df["Liq_Buy_Size"] = 0.0
         ohlcv_df["Liq_Sell_Size"] = 0.0
+        # Also add aggregated columns as zero
+        ohlcv_df["Liq_Buy_Aggregated"] = 0.0
+        ohlcv_df["Liq_Sell_Aggregated"] = 0.0
         return ohlcv_df
 
     # Aggregate liquidations per OHLCV candle interval
-    # We group liquidations by the candle they fall into.
-    # The index of ohlcv_df represents the *start* time of each candle.
     liq_df = liq_df.set_index("timestamp")
 
-    # Create separate series for buy and sell liquidations
     buy_liq = liq_df[liq_df["side"] == "BUY"]["cumulated_usd_size"]
     sell_liq = liq_df[liq_df["side"] == "SELL"]["cumulated_usd_size"]
 
-    # Resample/aggregate liquidation sizes to match the OHLCV timeframe
-    # 'label='left'' aligns the aggregated value with the start of the interval (matching OHLCV index)
-    # 'closed='left'' means the interval is [start, end)
-    # Map 'm' (minute) timeframe from ccxt to 'T' (minute) for pandas resampling to avoid FutureWarning
-    # Map 'm' (minute) timeframe from ccxt to 'min' for pandas resampling
     resample_freq = (
         timeframe.replace("m", "min") if timeframe.endswith("m") else timeframe
     )
-    agg_buy = buy_liq.resample(
-        resample_freq, label="left", closed="left"
-    ).sum()  # Use 'min' instead of 'T'
-    agg_sell = sell_liq.resample(
-        resample_freq, label="left", closed="left"
-    ).sum()  # Use 'min' instead of 'T'
+    agg_buy = buy_liq.resample(resample_freq, label="left", closed="left").sum()
+    agg_sell = sell_liq.resample(resample_freq, label="left", closed="left").sum()
 
-    # Merge aggregated liquidations into the OHLCV dataframe
     merged_df = ohlcv_df.join(agg_buy.rename("Liq_Buy_Size")).join(
         agg_sell.rename("Liq_Sell_Size")
     )
 
-    # Fill NaN values (candles with no liquidations) with 0
     merged_df[["Liq_Buy_Size", "Liq_Sell_Size"]] = merged_df[
         ["Liq_Buy_Size", "Liq_Sell_Size"]
     ].fillna(0.0)
+
+    # Calculate rolling sums over the specified aggregation window (in minutes)
+    window = liquidation_aggregation_minutes
+    merged_df["Liq_Buy_Aggregated"] = (
+        merged_df["Liq_Buy_Size"].rolling(window=window, min_periods=1).sum().fillna(0)
+    )
+    merged_df["Liq_Sell_Aggregated"] = (
+        merged_df["Liq_Sell_Size"].rolling(window=window, min_periods=1).sum().fillna(0)
+    )
 
     print("Data preparation complete.")
     return merged_df
