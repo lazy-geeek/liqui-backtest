@@ -35,6 +35,11 @@ class LiquidationStrategy(Strategy):
         self.entry_slippage = self.slippage_percentage_per_side / 100.0
         self.exit_slippage = self.slippage_percentage_per_side / 100.0
 
+        # Initialize progress tracking
+        self._candle_count = 0
+        self._total_candles = len(self.data)
+        self._report_interval = 5000  # Print progress every 5000 candles
+
         print("--- Strategy Initialized ---")
         print(f"Buy Liq Threshold (USD): {self.buy_liquidation_threshold_usd}")
         print(f"Sell Liq Threshold (USD): {self.sell_liquidation_threshold_usd}")
@@ -49,6 +54,14 @@ class LiquidationStrategy(Strategy):
         """
         Define the logic executed at each data point (candle).
         """
+        # Progress reporting
+        self._candle_count += 1
+        if self._candle_count % self._report_interval == 0 or self._candle_count == 1:
+            percent = (self._candle_count / self._total_candles) * 100
+            print(
+                f"Backtest progress: {self._candle_count}/{self._total_candles} candles ({percent:.1f}%)"
+            )
+
         current_price = self.price[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
         sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
