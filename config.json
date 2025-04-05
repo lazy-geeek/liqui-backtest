@@ -13,6 +13,7 @@
         "stop_loss_percentage": 1.0,
         "take_profit_percentage": 2.0,
         "exit_on_opposite_signal": false,
-        "slippage_percentage_per_side": 0.05
+        "slippage_percentage_per_side": 0.05,
+        "position_size_fraction": 0.01
     }
 }

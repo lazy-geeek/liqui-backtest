@@ -19,6 +19,7 @@ class LiquidationStrategy(Strategy):
     take_profit_percentage = 2.0
     exit_on_opposite_signal = False
     slippage_percentage_per_side = 0.05
+    position_size_fraction = 0.01
 
     def init(self):
         """
@@ -40,6 +41,7 @@ class LiquidationStrategy(Strategy):
         print(f"Take Profit: {self.take_profit_percentage}%")
         print(f"Slippage (per side): {self.slippage_percentage_per_side}%")
         print(f"Exit on Opposite Signal: {self.exit_on_opposite_signal}")
+        print(f"Position Size Fraction: {self.position_size_fraction}")
         print("---------------------------")
 
     def next(self):
@@ -47,8 +49,10 @@ class LiquidationStrategy(Strategy):
         Define the logic executed at each data point (candle).
         """
         current_price = self.price[-1]
-        buy_signal = self.data.Liq_Buy_Size[-1] > self.buy_liquidation_threshold_usd
-        sell_signal = self.data.Liq_Sell_Size[-1] > self.sell_liquidation_threshold_usd
+        buy_liq_size = self.data.Liq_Buy_Size[-1]
+        sell_liq_size = self.data.Liq_Sell_Size[-1]
+        buy_signal = buy_liq_size > self.buy_liquidation_threshold_usd
+        sell_signal = sell_liq_size > self.sell_liquidation_threshold_usd
         # --- DEBUG PRINTS ---
         # --- DEBUG PRINTS ---
         print(
@@ -70,15 +74,17 @@ class LiquidationStrategy(Strategy):
                 entry_price = current_price * (
                     1 + self.entry_slippage
                 )  # Keep for debug print consistency
-                # Calculate size based on 10% equity risk
-                size_usd = self.equity * 0.10
-                size_units = size_usd / current_price
+                # Use fraction of equity for size, as expected by backtesting.py
+                size_fraction = self.position_size_fraction
+                # Recalculate SL and TP to ensure proper ordering
+                sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
+                tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
                 print(
-                    f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_units:.4f} units | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                    f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                 )
                 self.buy(
-                    size=size_units, sl=sl_price, tp=tp_price
-                )  # Restore sl/tp and add size
+                    size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
+                )
                 # print(f"{self.data.index[-1]} LONG Entry | Price: {entry_price:.4f} | Liq: {self.buy_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
             elif sell_signal:
@@ -90,7 +96,7 @@ class LiquidationStrategy(Strategy):
                     1 - self.entry_slippage
                 )  # Keep for debug print consistency
                 # Use fraction of equity for size, as expected by backtesting.py
-                size_fraction = 0.10  # 10% of equity
+                size_fraction = self.position_size_fraction
                 print(
                     f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                 )
