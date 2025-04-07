@@ -192,7 +192,7 @@ if __name__ == "__main__":
         cash=initial_cash,
         commission=commission_decimal,
         margin=margin,
-        # exclusive_orders=True # Consider if you want only one order type active at a time
+        # exclusive_orders=True,  # Enforce only one open trade at a time
         # trade_on_close=False # Default: trade on next bar's open. Set True to trade on current bar's close.
     )
     print("Backtest initialized.")
@@ -211,9 +211,13 @@ if __name__ == "__main__":
     print("-" * 30)
 
     # Optional: Print details about trades
-    # print("--- Trades ---")
-    # print(stats['_trades']) # Access the trades DataFrame
-    # print("-" * 30)
+    print("--- First 10 Trades ---")
+    try:
+        trades = stats["_trades"]
+        print(trades.head(10))
+    except Exception as e:
+        print(f"Error filtering trades: {e}")
+    print("-" * 30)
 
     # 5. Save Plot (Optional)
     # Generate filename based on config settings

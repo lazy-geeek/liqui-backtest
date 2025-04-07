@@ -54,6 +54,9 @@ class LiquidationStrategy(Strategy):
         """
         Define the logic executed at each data point (candle).
         """
+        # Enforce strict single-position policy: if any position is open, do nothing
+        if self.position:
+            return
         # Progress reporting
         self._candle_count += 1
         if self._candle_count % self._report_interval == 0 or self._candle_count == 1:
@@ -78,19 +81,14 @@ class LiquidationStrategy(Strategy):
         # --- END DEBUG ---
 
         # --- Entry Logic ---
-        # Only enter if not already in a position
+        # Only enter if not already in a position AND no open trades exist
         if not self.position:
+
             if buy_signal:
-                # Calculate SL and TP prices considering slippage for entry
-                # Calculate SL and TP based on current price, let broker handle execution slippage
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                entry_price = current_price * (
-                    1 + self.entry_slippage
-                )  # Keep for debug print consistency
-                # Use fraction of equity for size, as expected by backtesting.py
+                entry_price = current_price * (1 + self.entry_slippage)
                 size_fraction = self.position_size_fraction
-                # Recalculate SL and TP to ensure proper ordering
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
                 if self.debug_mode:
@@ -100,17 +98,11 @@ class LiquidationStrategy(Strategy):
                 self.buy(
                     size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
                 )
-                # print(f"{self.data.index[-1]} LONG Entry | Price: {entry_price:.4f} | Liq: {self.buy_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
             elif sell_signal:
-                # Calculate SL and TP prices considering slippage for entry
-                # Calculate SL and TP based on current price, let broker handle execution slippage
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                entry_price = current_price * (
-                    1 - self.entry_slippage
-                )  # Keep for debug print consistency
-                # Use fraction of equity for size, as expected by backtesting.py
+                entry_price = current_price * (1 - self.entry_slippage)
                 size_fraction = self.position_size_fraction
                 if self.debug_mode:
                     print(
@@ -119,7 +111,6 @@ class LiquidationStrategy(Strategy):
                 self.sell(
                     size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
                 )
-                # print(f"{self.data.index[-1]} SHORT Entry | Price: {entry_price:.4f} | Liq: {self.sell_liq[-1]:.2f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
 
         # --- Exit Logic ---
         # Primarily handled by sl/tp parameters in self.buy/self.sell
