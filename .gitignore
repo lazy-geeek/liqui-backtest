@@ -178,3 +178,5 @@ backtest*.html
 PLAN.md
 
 cache/
+
+*.csv

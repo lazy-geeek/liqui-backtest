@@ -102,6 +102,12 @@ if config:
         )
         st.plotly_chart(sell_chart, use_container_width=True)
 
+        # --- Detailed Data Table ---
+        st.subheader("Detailed Data Table")
+        st.dataframe(
+            data_df, use_container_width=True
+        )  # Display the full dataframe interactively
+
         # Charts are now generated above
 
     elif data_df is None:  # Handle case where prepare_data might return None on error
