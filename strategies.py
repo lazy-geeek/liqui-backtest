@@ -65,11 +65,6 @@ class LiquidationStrategy(Strategy):
             return
         # Progress reporting
         self._candle_count += 1
-        if self._candle_count % self._report_interval == 0 or self._candle_count == 1:
-            percent = (self._candle_count / self._total_candles) * 100
-            print(
-                f"Backtest progress: {self._candle_count}/{self._total_candles} candles ({percent:.1f}%)"
-            )
 
         current_price = self.data.Close[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
