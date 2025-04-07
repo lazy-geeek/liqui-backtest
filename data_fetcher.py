@@ -2,7 +2,6 @@ import ccxt
 import requests
 import pandas as pd
 from datetime import datetime, timezone
-import os
 from pathlib import Path
 
 # Define Cache Directory
@@ -180,7 +179,6 @@ def fetch_liquidations(
         df = pd.DataFrame(data)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         # Ensure timestamp_iso is also parsed if needed later, though we primarily use 'timestamp'
-        # df['timestamp_iso'] = pd.to_datetime(df['timestamp_iso'], utc=True)
         print(f"Fetched {len(df)} liquidation records from API.")
         # Save to cache
         try:
@@ -274,34 +272,3 @@ def prepare_data(
 
     print("Data preparation complete.")
     return merged_df
-
-
-if __name__ == "__main__":
-    # Example usage: Fetch data for SUIUSDT 5m for a small period
-    symbol = "SUIUSDT"
-    timeframe = "5m"
-    start_date = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    end_date = datetime(
-        2025, 1, 1, 2, 0, 0, tzinfo=timezone.utc
-    )  # Fetch 2 hours for testing
-
-    print(f"--- Testing Data Fetcher ---")
-    # Test OHLCV fetch
-    # ohlcv_data = fetch_ohlcv(symbol, timeframe, start_date, end_date)
-    # print("\nOHLCV Data Head:")
-    # print(ohlcv_data.head())
-
-    # Test Liquidation fetch
-    # liquidation_data = fetch_liquidations(symbol, timeframe, start_date, end_date)
-    # print("\nLiquidation Data Head:")
-    # print(liquidation_data.head())
-
-    # Test Prepare Data (Merge)
-    merged_data = prepare_data(symbol, timeframe, start_date, end_date)
-    print("\nMerged Data Head:")
-    print(merged_data.head())
-    print("\nMerged Data Tail:")
-    print(merged_data.tail())
-    print("\nMerged Data Info:")
-    merged_data.info()
-    print(f"--- End Test ---")

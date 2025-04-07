@@ -1,5 +1,4 @@
 from backtesting import Strategy
-from backtesting.lib import crossover
 
 
 class LiquidationStrategy(Strategy):
@@ -32,16 +31,10 @@ class LiquidationStrategy(Strategy):
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
         self.sell_liq = self.data.Liq_Sell_Size
-        # self.price = self.data.Close  # Use close price for calculations
 
         # Convert slippage percentage to decimal for calculations
         self.entry_slippage = self.slippage_percentage_per_side / 100.0
         self.exit_slippage = self.slippage_percentage_per_side / 100.0
-
-        # Initialize progress tracking
-        self._candle_count = 0
-        self._total_candles = len(self.data)
-        self._report_interval = 5000  # Print progress every 5000 candles
 
         print("--- Strategy Initialized ---")
         print(f"Buy Liq Threshold (USD): {self.buy_liquidation_threshold_usd}")
@@ -64,7 +57,6 @@ class LiquidationStrategy(Strategy):
         if self.position:
             return
         # Progress reporting
-        self._candle_count += 1
 
         current_price = self.data.Close[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
@@ -79,10 +71,10 @@ class LiquidationStrategy(Strategy):
             if buy_signal:
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                # entry_price = current_price * (1 + self.entry_slippage)
-                size_fraction = self.position_size_fraction
-                sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
-                tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
+                # entry_price = current_price * (1 + self.entry_slippage) # Comment kept as it might be useful context
+                size_fraction = (
+                    self.position_size_fraction
+                )  # Kept original calculation on line 80-81
                 if self.debug_mode:
                     print(
                         f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
@@ -92,7 +84,7 @@ class LiquidationStrategy(Strategy):
             elif sell_signal:
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                # entry_price = current_price * (1 - self.entry_slippage)
+                # entry_price = current_price * (1 - self.entry_slippage) # Comment kept as it might be useful context
                 size_fraction = self.position_size_fraction
                 if self.debug_mode:
                     print(

@@ -72,7 +72,6 @@ if config:
         st.success("Data loaded successfully!")
         st.dataframe(data_df.head())  # Show a preview of the data
 
-        # --- Chart Creation (Placeholder for next step) ---
         st.subheader("Liquidation Charts")
         # Create Buy Liquidations Chart
         buy_chart = px.bar(
@@ -109,9 +108,6 @@ if config:
         )  # Display the full dataframe interactively
 
         # Charts are now generated above
-
-    elif data_df is None:  # Handle case where prepare_data might return None on error
-        st.warning("Data fetching returned None. Cannot display charts.")
     else:  # Handle empty DataFrame case
         st.warning(
             "No data available for the selected parameters. Cannot display charts."

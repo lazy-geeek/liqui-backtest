@@ -1,6 +1,6 @@
 import json
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime
 from backtesting import Backtest
 from termcolor import colored
 import glob
@@ -219,8 +219,6 @@ if __name__ == "__main__":
     print("--- Backtest Results ---")
     print(stats)
     print("-" * 30)
-
-    # Optional: Print details about trades
 
     # 5. Save Plot (Optional)
     # Generate filename based on config settings
