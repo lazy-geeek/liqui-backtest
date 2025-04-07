@@ -32,7 +32,7 @@ class LiquidationStrategy(Strategy):
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
         self.sell_liq = self.data.Liq_Sell_Size
-        self.price = self.data.Close  # Use close price for calculations
+        # self.price = self.data.Close  # Use close price for calculations
 
         # Convert slippage percentage to decimal for calculations
         self.entry_slippage = self.slippage_percentage_per_side / 100.0
@@ -71,7 +71,7 @@ class LiquidationStrategy(Strategy):
                 f"Backtest progress: {self._candle_count}/{self._total_candles} candles ({percent:.1f}%)"
             )
 
-        current_price = self.price[-1]
+        current_price = self.data.Close[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
         sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
         buy_signal = buy_liq_agg > self.buy_liquidation_threshold_usd
