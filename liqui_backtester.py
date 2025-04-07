@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime, timezone
 from backtesting import Backtest
 from termcolor import colored
+import glob
+import os
 import warnings
 
 # Suppress Bokeh timezone warning
@@ -45,6 +47,14 @@ def load_config(config_path: str) -> dict:
 # --- Main Execution ---
 if __name__ == "__main__":
     config = load_config(CONFIG_FILE)
+
+    # Delete all previously generated backtest HTML files
+    for html_file in glob.glob("backtest_*.html"):
+        try:
+            os.remove(html_file)
+            print(f"Deleted old backtest file: {html_file}")
+        except Exception as e:
+            print(f"Could not delete {html_file}: {e}")
 
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
@@ -211,13 +221,6 @@ if __name__ == "__main__":
     print("-" * 30)
 
     # Optional: Print details about trades
-    print("--- First 10 Trades ---")
-    try:
-        trades = stats["_trades"]
-        print(trades.head(10))
-    except Exception as e:
-        print(f"Error filtering trades: {e}")
-    print("-" * 30)
 
     # 5. Save Plot (Optional)
     # Generate filename based on config settings

@@ -92,9 +92,7 @@ class LiquidationStrategy(Strategy):
                     print(
                         f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                     )
-                self.buy(
-                    size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
-                )
+                self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
 
             elif sell_signal:
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
@@ -105,6 +103,4 @@ class LiquidationStrategy(Strategy):
                     print(
                         f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                     )
-                self.sell(
-                    size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
-                )
+                self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
