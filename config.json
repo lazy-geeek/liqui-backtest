@@ -3,7 +3,7 @@
         "symbol": "SUIUSDT",
         "timeframe": "1m",
         "start_date_iso": "2025-01-01T00:00:00Z",
-        "end_date_iso": "2025-04-01T00:00:00Z",
+        "end_date_iso": "2025-01-02T00:00:00Z",
         "initial_cash": 10000,
         "commission_percentage": 0.04,
         "liquidation_aggregation_minutes": 5,
@@ -19,6 +19,6 @@
         "position_size_fraction": 0.01
     },
     "app_settings": {
-        "debug_mode": false
+        "debug_mode": true
     }
 }

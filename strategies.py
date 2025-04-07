@@ -26,6 +26,9 @@ class LiquidationStrategy(Strategy):
         """
         Initialize the strategy. Precompute indicators or series here if needed.
         """
+
+        super().init()
+
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
         self.sell_liq = self.data.Liq_Sell_Size
@@ -54,6 +57,9 @@ class LiquidationStrategy(Strategy):
         """
         Define the logic executed at each data point (candle).
         """
+
+        super().next()
+
         # Enforce strict single-position policy: if any position is open, do nothing
         if self.position:
             return
@@ -70,15 +76,6 @@ class LiquidationStrategy(Strategy):
         sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
         buy_signal = buy_liq_agg > self.buy_liquidation_threshold_usd
         sell_signal = sell_liq_agg > self.sell_liquidation_threshold_usd
-        # --- DEBUG PRINTS ---
-        if self.debug_mode:
-            print(
-                f"{self.data.index[-1]} | "
-                f"BuyLiqAgg: {buy_liq_agg:,.0f}, SellLiqAgg: {sell_liq_agg:,.0f} | "
-                f"BuySig: {buy_signal}, SellSig: {sell_signal} | "
-                f"InPos: {bool(self.position)}"
-            )
-        # --- END DEBUG ---
 
         # --- Entry Logic ---
         # Only enter if not already in a position AND no open trades exist
@@ -87,7 +84,7 @@ class LiquidationStrategy(Strategy):
             if buy_signal:
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                entry_price = current_price * (1 + self.entry_slippage)
+                # entry_price = current_price * (1 + self.entry_slippage)
                 size_fraction = self.position_size_fraction
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
@@ -102,7 +99,7 @@ class LiquidationStrategy(Strategy):
             elif sell_signal:
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                entry_price = current_price * (1 - self.entry_slippage)
+                # entry_price = current_price * (1 - self.entry_slippage)
                 size_fraction = self.position_size_fraction
                 if self.debug_mode:
                     print(
@@ -111,44 +108,3 @@ class LiquidationStrategy(Strategy):
                 self.sell(
                     size=size_fraction, limit=current_price, sl=sl_price, tp=tp_price
                 )
-
-        # --- Exit Logic ---
-        # Primarily handled by sl/tp parameters in self.buy/self.sell
-        # TODO: Implement optional exit based on opposite signal if self.exit_on_opposite_signal is True
-        # Example (needs refinement):
-        # if self.position.is_long and sell_signal and self.exit_on_opposite_signal:
-        #     exit_price = current_price * (1 - self.exit_slippage)
-        #     self.position.close()
-        #     print(f"{self.data.index[-1]} LONG Exit (Opposite Signal) | Price: {exit_price:.4f} | Liq: {self.sell_liq[-1]:.2f}")
-        # elif self.position.is_short and buy_signal and self.exit_on_opposite_signal:
-        #     exit_price = current_price * (1 + self.exit_slippage)
-        #     self.position.close()
-        #     print(f"{self.data.index[-1]} SHORT Exit (Opposite Signal) | Price: {exit_price:.4f} | Liq: {self.buy_liq[-1]:.2f}")
-
-
-# --- Example of how to potentially add more complex logic or indicators ---
-# class LiquidationWithMA(LiquidationStrategy):
-#     ma_period = 20 # Add another parameter
-#
-#     def init(self):
-#         super().init() # Call parent init
-#         # Add a moving average indicator
-#         self.ma = self.I(lambda x: pd.Series(x).rolling(self.ma_period).mean(), self.data.Close)
-#
-#     def next(self):
-#         # Access parent logic if needed: super().next()
-#         current_price = self.price[-1]
-#         buy_signal = self.buy_liq[-1] > self.buy_liq_threshold
-#         sell_signal = self.sell_liq[-1] > self.sell_liq_threshold
-#
-#         # Combine liquidation signal with MA trend filter
-#         if not self.position:
-#             if buy_signal and current_price > self.ma[-1]: # Only long if above MA
-#                 sl_price = current_price * (1 - self.sl_pct / 100.0)
-#                 tp_price = current_price * (1 + self.tp_pct / 100.0)
-#                 self.buy(sl=sl_price, tp=tp_price)
-#             elif sell_signal and current_price < self.ma[-1]: # Only short if below MA
-#                 sl_price = current_price * (1 + self.sl_pct / 100.0)
-#                 tp_price = current_price * (1 - self.tp_pct / 100.0)
-#                 self.sell(sl=sl_price, tp=tp_price)
-#         # ... rest of exit logic ...
