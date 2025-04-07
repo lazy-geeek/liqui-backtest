@@ -3,6 +3,18 @@ import pandas as pd
 from datetime import datetime, timezone
 from backtesting import Backtest
 from termcolor import colored
+import warnings
+
+# Suppress Bokeh timezone warning
+warnings.filterwarnings(
+    "ignore", message=".*no explicit representation of timezones.*", module="bokeh.*"
+)
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*A contingent SL/TP order would execute in the same bar.*",
+    module="backtesting.*",
+)
 
 # Import our custom modules
 import data_fetcher
@@ -159,11 +171,27 @@ if __name__ == "__main__":
 
     # 2. Initialize Backtest
     print("Initializing backtest...")
+
+    # Read leverage from config and calculate margin
+    leverage = backtest_settings.get("leverage", 1)
+    try:
+        lev_float = float(leverage)
+        if lev_float <= 0:
+            print("Warning: Leverage must be positive. Defaulting to 1x (margin=1.0).")
+            lev_float = 1.0
+    except (ValueError, TypeError):
+        print("Warning: Invalid leverage value. Defaulting to 1x (margin=1.0).")
+        lev_float = 1.0
+
+    margin = 1.0 / lev_float
+    print(f"Leverage set to {lev_float}x, resulting in margin={margin:.4f}")
+
     bt = Backtest(
         data,
         LiquidationStrategy,
         cash=initial_cash,
         commission=commission_decimal,
+        margin=margin,
         # exclusive_orders=True # Consider if you want only one order type active at a time
         # trade_on_close=False # Default: trade on next bar's open. Set True to trade on current bar's close.
     )
