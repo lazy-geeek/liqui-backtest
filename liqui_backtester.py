@@ -1,11 +1,12 @@
 import json
 import pandas as pd
 from datetime import datetime
-from backtesting import Backtest
+from backtesting import Backtest, Strategy
 from termcolor import colored
 import glob
 import os
 import warnings
+from typing import Type  # Added for type hinting Strategy class
 
 # Suppress Bokeh timezone warning
 warnings.filterwarnings(
@@ -35,13 +36,60 @@ def load_config(config_path: str) -> dict:
         return config
     except FileNotFoundError:
         print(f"Error: Configuration file not found at {config_path}")
-        exit()
+        exit(1)  # Use exit code 1 for errors
     except json.JSONDecodeError:
         print(f"Error: Could not decode JSON from {config_path}")
-        exit()
+        exit(1)
     except Exception as e:
         print(f"An unexpected error occurred loading config: {e}")
-        exit()
+        exit(1)
+
+
+# --- Core Backtesting Function ---
+def run_single_backtest(
+    data: pd.DataFrame,
+    strategy_class: Type[Strategy],
+    strategy_params: dict,
+    initial_cash: float,
+    commission_decimal: float,
+    margin: float,
+) -> tuple[pd.Series, Backtest]:
+    """
+    Initializes and runs a single backtest instance.
+
+    Args:
+        data: DataFrame with OHLCV and strategy-specific columns.
+        strategy_class: The strategy class to use (e.g., LiquidationStrategy).
+        strategy_params: Dictionary of parameters to pass to the strategy.
+        initial_cash: Starting cash for the backtest.
+        commission_decimal: Commission per trade (e.g., 0.0004 for 0.04%).
+        margin: Margin requirement (e.g., 1.0 for 1x leverage, 0.2 for 5x).
+
+    Returns:
+        A tuple containing:
+            - stats: A pandas Series with backtest performance metrics.
+            - bt: The Backtest object instance (useful for plotting).
+    """
+    print("Initializing backtest...")
+    bt = Backtest(
+        data,
+        strategy_class,
+        cash=initial_cash,
+        commission=commission_decimal,
+        margin=margin,
+        # exclusive_orders=True, # Consider if needed
+        # trade_on_close=False
+    )
+    print("Backtest initialized.")
+    print("-" * 30)
+
+    print("Running backtest...")
+    # Pass strategy parameters loaded from config to the run method
+    stats = bt.run(**strategy_params)
+    print("Backtest finished.")
+    print("-" * 30)
+
+    return stats, bt
 
 
 # --- Main Execution ---
@@ -49,12 +97,18 @@ if __name__ == "__main__":
     config = load_config(CONFIG_FILE)
 
     # Delete all previously generated backtest HTML files
+    print("Deleting old backtest HTML files...")
+    deleted_count = 0
     for html_file in glob.glob("backtest_*.html"):
         try:
             os.remove(html_file)
-            print(f"Deleted old backtest file: {html_file}")
+            # print(f"Deleted old backtest file: {html_file}")
+            deleted_count += 1
         except Exception as e:
             print(f"Could not delete {html_file}: {e}")
+    if deleted_count > 0:
+        print(f"Deleted {deleted_count} old backtest file(s).")
+    print("-" * 30)
 
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
@@ -72,12 +126,26 @@ if __name__ == "__main__":
         end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
     except ValueError as e:
         print(f"Error parsing date strings from config: {e}")
-        exit()
+        exit(1)
 
     initial_cash = backtest_settings.get("initial_cash", 10000)
     commission_pct = backtest_settings.get("commission_percentage", 0.04)
-    # Convert commission percentage to decimal for backtesting.py
-    commission_decimal = commission_pct / 100.0
+    commission_decimal = commission_pct / 100.0  # Moved calculation here
+    leverage = backtest_settings.get("leverage", 1)
+    liquidation_aggregation_minutes = backtest_settings.get(
+        "liquidation_aggregation_minutes", 5
+    )
+
+    # Calculate margin
+    try:
+        lev_float = float(leverage)
+        if lev_float <= 0:
+            print("Warning: Leverage must be positive. Defaulting to 1x (margin=1.0).")
+            lev_float = 1.0
+    except (ValueError, TypeError):
+        print("Warning: Invalid leverage value. Defaulting to 1x (margin=1.0).")
+        lev_float = 1.0
+    margin = 1.0 / lev_float
 
     print("--- Starting Liquidation Backtester ---")
     print(f"Symbol: {symbol}")
@@ -85,19 +153,17 @@ if __name__ == "__main__":
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}")
     print(f"Commission: {commission_pct:.4f}% ({commission_decimal:.6f} decimal)")
+    print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
+    print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
     print(f"Strategy Params: {strategy_params}")
 
     # Add debug_mode from app_settings to strategy_params
     debug_mode = app_settings.get("debug_mode", False)
-    strategy_params["debug_mode"] = debug_mode
+    strategy_params["debug_mode"] = debug_mode  # Ensure debug mode is passed
     print("-" * 30)
 
     # 1. Fetch and Prepare Data
     print("Preparing data...")
-
-    liquidation_aggregation_minutes = backtest_settings.get(
-        "liquidation_aggregation_minutes", 5
-    )
 
     data = data_fetcher.prepare_data(
         symbol,
@@ -109,7 +175,7 @@ if __name__ == "__main__":
 
     if data.empty:
         print("No data available for backtesting. Exiting.")
-        exit()
+        exit(1)
 
     # Ensure data has the correct columns expected by backtesting.py and our strategy
     required_cols = [
@@ -120,12 +186,15 @@ if __name__ == "__main__":
         "Volume",
         "Liq_Buy_Size",
         "Liq_Sell_Size",
+        "Liq_Buy_Aggregated",
+        "Liq_Sell_Aggregated",  # Added aggregated columns check
     ]
-    if not all(col in data.columns for col in required_cols):
+    missing_cols = [col for col in required_cols if col not in data.columns]
+    if missing_cols:
         print(
-            f"Error: Dataframe missing required columns. Found: {data.columns}. Required: {required_cols}"
+            f"Error: Dataframe missing required columns: {missing_cols}. Found: {list(data.columns)}"
         )
-        exit()
+        exit(1)
 
     print(f"Data prepared. Shape: {data.shape}")
     print("-" * 30)
@@ -179,54 +248,29 @@ if __name__ == "__main__":
         )
     print("-" * 30)
 
-    # 2. Initialize Backtest
-    print("Initializing backtest...")
-
-    # Read leverage from config and calculate margin
-    leverage = backtest_settings.get("leverage", 1)
-    try:
-        lev_float = float(leverage)
-        if lev_float <= 0:
-            print("Warning: Leverage must be positive. Defaulting to 1x (margin=1.0).")
-            lev_float = 1.0
-    except (ValueError, TypeError):
-        print("Warning: Invalid leverage value. Defaulting to 1x (margin=1.0).")
-        lev_float = 1.0
-
-    margin = 1.0 / lev_float
-    print(f"Leverage set to {lev_float}x, resulting in margin={margin:.4f}")
-
-    bt = Backtest(
-        data,
-        LiquidationStrategy,
-        cash=initial_cash,
-        commission=commission_decimal,
+    # 2. Run Backtest using the refactored function
+    stats, bt = run_single_backtest(
+        data=data,
+        strategy_class=LiquidationStrategy,
+        strategy_params=strategy_params,
+        initial_cash=initial_cash,
+        commission_decimal=commission_decimal,
         margin=margin,
-        # exclusive_orders=True,  # Enforce only one open trade at a time
-        # trade_on_close=False # Default: trade on next bar's open. Set True to trade on current bar's close.
     )
-    print("Backtest initialized.")
-    print("-" * 30)
 
-    # 3. Run Backtest
-    print("Running backtest...")
-    # Pass strategy parameters loaded from config to the run method
-    stats = bt.run(**strategy_params)
-    print("Backtest finished.")
-    print("-" * 30)
-
-    # 4. Print Results
+    # 3. Print Results
     print("--- Backtest Results ---")
     print(stats)
     print("-" * 30)
 
-    # 5. Save Plot (Optional)
+    # 4. Save Plot (Optional)
     # Generate filename based on config settings
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
     plot_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
     print(f"Saving plot to {plot_filename}...")
     try:
+        # Use the returned 'bt' object for plotting
         bt.plot(filename=plot_filename, open_browser=False, resample="1h")
         print("Plot saved successfully.")
     except Exception as e:
