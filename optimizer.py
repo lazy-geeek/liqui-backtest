@@ -122,13 +122,10 @@ def build_param_grid(config: dict) -> dict:
     param_grid["position_size_fraction"] = strategy_defaults.get(
         "position_size_fraction", 0.01
     )
-    param_grid["debug_mode"] = app_settings.get("debug_mode", False)
-
     print(
         f"  slippage_percentage_per_side: {param_grid['slippage_percentage_per_side']} (fixed)"
     )
     print(f"  position_size_fraction: {param_grid['position_size_fraction']} (fixed)")
-    print(f"  debug_mode: {param_grid['debug_mode']} (fixed)")
 
     # Adjust param_grid based on modus
     modus = config.get("backtest_settings", {}).get("modus", "both")

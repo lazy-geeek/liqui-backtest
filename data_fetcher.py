@@ -3,12 +3,16 @@ import requests
 import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Define Cache Directory
 CACHE_DIR = Path("cache")
 
 # Define the API base URL
-LIQUIDATION_API_BASE_URL = "http://liqui-api.endor.lazy-geek.net/api/liquidations"
+LIQUIDATION_API_BASE_URL = os.getenv("LIQUIDATION_API_BASE_URL")
 
 
 def fetch_ohlcv(
