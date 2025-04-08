@@ -37,16 +37,6 @@ class LiquidationStrategy(Strategy):
         self.entry_slippage = self.slippage_percentage_per_side / 100.0
         self.exit_slippage = self.slippage_percentage_per_side / 100.0
 
-        print("--- Strategy Initialized ---")
-        print(f"Buy Liq Threshold (USD): {self.buy_liquidation_threshold_usd}")
-        print(f"Sell Liq Threshold (USD): {self.sell_liquidation_threshold_usd}")
-        print(f"Stop Loss: {self.stop_loss_percentage}%")
-        print(f"Take Profit: {self.take_profit_percentage}%")
-        print(f"Slippage (per side): {self.slippage_percentage_per_side}%")
-        print(f"Exit on Opposite Signal: {self.exit_on_opposite_signal}")
-        print(f"Position Size Fraction: {self.position_size_fraction}")
-        print("---------------------------")
-
     def next(self):
         """
         Define the logic executed at each data point (candle).

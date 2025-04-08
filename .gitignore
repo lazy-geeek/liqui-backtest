@@ -181,3 +181,4 @@ cache/
 
 *.csv
 optimization_plan.md
+optimization_best_params.json

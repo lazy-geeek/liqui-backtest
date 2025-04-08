@@ -45,6 +45,9 @@ warnings.filterwarnings(
     message="invalid value encountered in double_scalars",
     category=RuntimeWarning,
 )
+warnings.filterwarnings(
+    action="ignore", message=".*Searching for best of .* configurations.*"
+)
 
 
 # --- Helper Function to Build Parameter Grid ---
@@ -172,6 +175,8 @@ if __name__ == "__main__":
     backtest_settings = config.get("backtest_settings", {})
     # We don't need strategy_params from config here, as they'll be optimized
     app_settings = config.get("app_settings", {})  # Still needed for debug_mode default
+    optimization_settings = config.get("optimization_settings", {})
+    target_metric = optimization_settings.get("target_metric", "Sharpe Ratio")
 
     # 2. Parse Backtest Settings from Config
     symbol = backtest_settings.get("symbol", "SUIUSDT")
@@ -202,7 +207,7 @@ if __name__ == "__main__":
         lev_float = 1.0
     margin = 1.0 / lev_float
 
-    print(f"Optimization Target: Sharpe Ratio")
+    print(f"Optimization Target: {target_metric}")
     print(f"Symbol: {symbol}, Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
@@ -290,7 +295,7 @@ if __name__ == "__main__":
             return valid_tp and valid_sl  # and check_p1_gt_p2
 
         stats, heatmap = bt.optimize(
-            maximize="Sharpe Ratio",
+            maximize=target_metric,
             return_heatmap=True,
             # constraint=check_constraints, # Removed constraint
             **param_grid,
@@ -338,6 +343,17 @@ if __name__ == "__main__":
                 and not attr.startswith("_")
                 and attr in param_grid  # Only include params that were part of the grid
             }
+
+            # Convert any numpy scalar values to native Python types
+            for k, v in list(best_params_dict.items()):
+                try:
+                    import numpy as np
+
+                    if isinstance(v, (np.generic, np.ndarray)):
+                        best_params_dict[k] = v.item()
+                except ImportError:
+                    pass  # If numpy not available, skip
+
             # Manually add non-optimized params for clarity
             best_params_dict["slippage_percentage_per_side"] = param_grid[
                 "slippage_percentage_per_side"
@@ -345,7 +361,6 @@ if __name__ == "__main__":
             best_params_dict["position_size_fraction"] = param_grid[
                 "position_size_fraction"
             ]
-            best_params_dict["debug_mode"] = param_grid["debug_mode"]
             print(json.dumps(best_params_dict, indent=4))
         else:
             print("Could not extract best parameters from strategy object.")

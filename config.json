@@ -3,7 +3,7 @@
         "symbol": "SUIUSDT",
         "timeframe": "1m",
         "start_date_iso": "2025-01-01T00:00:00Z",
-        "end_date_iso": "2025-04-06T00:00:00Z",
+        "end_date_iso": "2025-01-15T00:00:00Z",
         "initial_cash": 10000,
         "commission_percentage": 0.04,
         "liquidation_aggregation_minutes": 5,
@@ -23,13 +23,14 @@
         "debug_mode": false
     },
     "optimization_settings": {
-        "optimize_exit_signal_if_modus_both": false
+        "optimize_exit_signal_if_modus_both": false,
+        "target_metric": "Equity Final [$]"
     },
     "optimization_ranges": {
         "buy_liquidation_threshold_usd": {
-            "start": 100000,
-            "end": 1000000,
-            "step": 100000
+            "start": 10000,
+            "end": 200000,
+            "step": 10000
         },
         "sell_liquidation_threshold_usd": {
             "start": 100000,
@@ -38,11 +39,11 @@
         },
         "stop_loss_percentage": {
             "start": 0.5,
-            "end": 5.0,
+            "end": 3.0,
             "step": 0.1
         },
         "take_profit_percentage": {
-            "start": 0.5,
+            "start": 2,
             "end": 5.0,
             "step": 0.1
         }
