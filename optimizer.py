@@ -77,23 +77,29 @@ def build_param_grid(config: dict) -> dict:
                     f"  {param_name}: Using range(start={start}, stop={end + step}, step={step})"
                 )
             else:
-                # Use numpy.arange for floats
-                # Use np.round to avoid precision issues with arange
-                # Add a small epsilon to 'end' to ensure inclusion if it's a multiple of step
-                num_steps = int(round((end - start) / step))
-                values = np.linspace(start, end, num_steps + 1)
-                # Round to a reasonable number of decimal places based on step
+                # Use list comprehension for floats to ensure hashable types
                 decimals = 0
                 if isinstance(step, float):
                     step_str = str(step)
                     if "." in step_str:
                         decimals = len(step_str.split(".")[-1])
-                # Convert numpy array to list of Python floats (which are hashable)
-                param_grid[param_name] = list(
-                    np.round(values, decimals if decimals > 0 else 2)
-                )
+                else:  # Handle potential float steps like 1.0
+                    step = float(step)
+                    start = float(start)
+                    end = float(end)
+
+                # Generate range using a loop and round
+                current = start
+                values = []
+                # Use a small tolerance for float comparison
+                tolerance = step / 1e6
+                while current <= end + tolerance:
+                    values.append(round(current, decimals if decimals > 0 else 2))
+                    current += step
+
+                param_grid[param_name] = values
                 print(
-                    f"  {param_name}: Using np.linspace(start={start}, stop={end}, num={num_steps + 1}) -> rounded"
+                    f"  {param_name}: Using generated list (start={start}, stop={end}, step={step}) -> {len(values)} values"
                 )
         else:
             print(
