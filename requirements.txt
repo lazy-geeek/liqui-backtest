@@ -7,3 +7,4 @@ streamlit
 plotly
 termcolor
 tqdm
+python-dotenv
