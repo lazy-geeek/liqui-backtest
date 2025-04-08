@@ -7,7 +7,8 @@
         "initial_cash": 10000,
         "commission_percentage": 0.04,
         "liquidation_aggregation_minutes": 5,
-        "leverage": 5
+        "leverage": 5,
+        "modus": "buy"
     },
     "strategy_parameters": {
         "buy_liquidation_threshold_usd": 100000,

@@ -12,6 +12,12 @@ import data_fetcher
 from strategies import LiquidationStrategy
 from liqui_backtester import load_config  # Use the loader from the refactored script
 
+import multiprocessing as mp
+
+# Ensure multiprocessing start method is 'fork'
+if mp.get_start_method(allow_none=False) != "fork":
+    mp.set_start_method("fork")
+
 # --- Configuration ---
 CONFIG_FILE = "config.json"
 OPTIMIZATION_RESULTS_CSV = "optimization_results.csv"
@@ -124,6 +130,16 @@ def build_param_grid(config: dict) -> dict:
     print(f"  position_size_fraction: {param_grid['position_size_fraction']} (fixed)")
     print(f"  debug_mode: {param_grid['debug_mode']} (fixed)")
 
+    # Adjust param_grid based on modus
+    modus = config.get("backtest_settings", {}).get("modus", "both")
+    if modus == "buy":
+        # Remove sell threshold from optimization
+        param_grid.pop("sell_liquidation_threshold_usd", None)
+    elif modus == "sell":
+        # Remove buy threshold from optimization
+        param_grid.pop("buy_liquidation_threshold_usd", None)
+    # else 'both': keep both thresholds
+
     return param_grid
 
 
@@ -223,6 +239,21 @@ if __name__ == "__main__":
 
     # 5. Build Optimization Parameter Grid from Config
     param_grid = build_param_grid(config)
+
+    # Calculate and print total number of parameter combinations
+    from functools import reduce
+    import operator
+
+    lengths = []
+    for v in param_grid.values():
+        try:
+            lengths.append(len(v))
+        except TypeError:
+            # Fixed values (single scalar), count as 1
+            lengths.append(1)
+
+    total_combinations = reduce(operator.mul, lengths, 1)
+    print(f"Total possible parameter combinations: {total_combinations}")
     print("-" * 30)
 
     # 6. Run Optimization

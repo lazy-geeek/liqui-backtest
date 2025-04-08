@@ -113,6 +113,10 @@ if __name__ == "__main__":
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
     strategy_params = config.get("strategy_parameters", {})
+
+    # Pass modus from backtest_settings into strategy_params
+    modus = backtest_settings.get("modus", "both")
+    strategy_params["modus"] = modus
     app_settings = config.get("app_settings", {})
 
     # Parse backtest settings

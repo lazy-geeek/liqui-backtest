@@ -20,6 +20,7 @@ class LiquidationStrategy(Strategy):
     slippage_percentage_per_side = 0.05
     position_size_fraction = 0.01
     debug_mode = False
+    modus = "both"
 
     def init(self):
         """
@@ -67,27 +68,45 @@ class LiquidationStrategy(Strategy):
         # --- Entry Logic ---
         # Only enter if not already in a position AND no open trades exist
         if not self.position:
+            if self.modus == "buy":
+                if buy_signal:
+                    sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
+                    tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
+                    size_fraction = self.position_size_fraction
+                    if self.debug_mode:
+                        print(
+                            f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                        )
+                    self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
 
-            if buy_signal:
-                sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
-                tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                # entry_price = current_price * (1 + self.entry_slippage) # Comment kept as it might be useful context
-                size_fraction = (
-                    self.position_size_fraction
-                )  # Kept original calculation on line 80-81
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                    )
-                self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
+            elif self.modus == "sell":
+                if sell_signal:
+                    sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
+                    tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
+                    size_fraction = self.position_size_fraction
+                    if self.debug_mode:
+                        print(
+                            f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                        )
+                    self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
 
-            elif sell_signal:
-                sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
-                tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                # entry_price = current_price * (1 - self.entry_slippage) # Comment kept as it might be useful context
-                size_fraction = self.position_size_fraction
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                    )
-                self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
+            else:  # modus == "both"
+                if buy_signal:
+                    sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
+                    tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
+                    size_fraction = self.position_size_fraction
+                    if self.debug_mode:
+                        print(
+                            f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                        )
+                    self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
+
+                elif sell_signal:
+                    sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
+                    tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
+                    size_fraction = self.position_size_fraction
+                    if self.debug_mode:
+                        print(
+                            f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                        )
+                    self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
