@@ -414,3 +414,4 @@ if __name__ == "__main__":
         print("Optimization did not complete successfully or returned no results.")
 
     print("--- Optimizer Finished ---")
+    print("\a")
