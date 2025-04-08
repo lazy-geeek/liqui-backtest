@@ -140,6 +140,28 @@ def build_param_grid(config: dict) -> dict:
         param_grid.pop("buy_liquidation_threshold_usd", None)
     # else 'both': keep both thresholds
 
+    # Handle exit_on_opposite_signal optimization based on modus and config flag
+    optimization_settings = config.get("optimization_settings", {})
+    optimize_exit_flag = optimization_settings.get(
+        "optimize_exit_signal_if_modus_both", False
+    )
+
+    # Read fixed/default value from strategy_parameters
+    fixed_exit_value = config.get("strategy_parameters", {}).get(
+        "exit_on_opposite_signal", False
+    )
+
+    if modus == "both" and optimize_exit_flag:
+        # Optimize over both True and False
+        param_grid["exit_on_opposite_signal"] = [False, True]
+        print("  exit_on_opposite_signal: optimizing over [False, True] (modus=both)")
+    else:
+        # Use fixed value
+        param_grid["exit_on_opposite_signal"] = fixed_exit_value
+        print(
+            f"  exit_on_opposite_signal: fixed at {fixed_exit_value} (optimization disabled or modus != both)"
+        )
+
     return param_grid
 
 
@@ -254,6 +276,7 @@ if __name__ == "__main__":
 
     total_combinations = reduce(operator.mul, lengths, 1)
     print(f"Total possible parameter combinations: {total_combinations}")
+    input("Press Enter to start optimization...")
     print("-" * 30)
 
     # 6. Run Optimization
