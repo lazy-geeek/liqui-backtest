@@ -382,11 +382,23 @@ if __name__ == "__main__":
         # Save best parameters to JSON
         if best_params_dict:
             try:
-                with open(OPTIMIZATION_BEST_PARAMS_JSON, "w") as f:
-                    json.dump(best_params_dict, f, indent=4)
-                print(f"Best parameters saved to {OPTIMIZATION_BEST_PARAMS_JSON}")
+                from datetime import datetime as dt
+
+                timestamp_str = dt.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"optimization_result_{symbol}_{timestamp_str}.json"
+
+                combined_result = {
+                    "best_params": best_params_dict,
+                    "config": config,
+                    "optimization_stats": stats.to_dict() if stats is not None else {},
+                }
+
+                with open(filename, "w") as f:
+                    json.dump(combined_result, f, indent=4)
+
+                print(f"Optimization results saved to {filename}")
             except Exception as e:
-                print(f"Error saving best parameters to JSON: {e}")
+                print(f"Error saving optimization results to JSON: {e}")
         else:
             print(
                 "Skipping saving best parameters JSON as they could not be extracted."
