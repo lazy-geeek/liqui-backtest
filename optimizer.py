@@ -383,15 +383,100 @@ if __name__ == "__main__":
         if best_params_dict:
             try:
                 from datetime import datetime as dt
+                import numpy as np
+
+                def clean_for_json(obj):
+                    import pandas as pd
+
+                    if isinstance(obj, dict):
+                        return {k: clean_for_json(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [clean_for_json(v) for v in obj]
+                    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+                        return int(obj)
+                    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                        return float(obj)
+                    elif isinstance(obj, (np.ndarray,)):
+                        return obj.tolist()
+                    elif isinstance(obj, pd.Timestamp):
+                        return obj.isoformat()
+                    elif isinstance(obj, pd.Timedelta):
+                        return str(obj)
+                    else:
+                        return obj
+
+                import os
 
                 timestamp_str = dt.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"optimization_result_{symbol}_{timestamp_str}.json"
+                output_dir = "optimization_results"
+                os.makedirs(output_dir, exist_ok=True)
+                filename = os.path.join(
+                    output_dir, f"optimization_result_{symbol}_{timestamp_str}.json"
+                )
+
+                cleaned_stats = {}
+                if stats is not None:
+                    try:
+                        cleaned_stats = clean_for_json(stats.to_dict())
+                    except Exception:
+                        cleaned_stats = {}
 
                 combined_result = {
                     "best_params": best_params_dict,
                     "config": config,
-                    "optimization_stats": stats.to_dict() if stats is not None else {},
+                    "optimization_stats": {},
                 }
+
+                # Extract key stats only
+                key_metrics = [
+                    "Start",
+                    "End",
+                    "Duration",
+                    "Exposure Time [%]",
+                    "Equity Final [$]",
+                    "Equity Peak [$]",
+                    "Commissions [$]",
+                    "Return [%]",
+                    "Buy & Hold Return [%]",
+                    "Return (Ann.) [%]",
+                    "Volatility (Ann.) [%]",
+                    "CAGR [%]",
+                    "Sharpe Ratio",
+                    "Sortino Ratio",
+                    "Calmar Ratio",
+                    "Alpha [%]",
+                    "Beta",
+                    "Max. Drawdown [%]",
+                    "Avg. Drawdown [%]",
+                    "Max. Drawdown Duration",
+                    "Avg. Drawdown Duration",
+                    "# Trades",
+                    "Win Rate [%]",
+                    "Best Trade [%]",
+                    "Worst Trade [%]",
+                    "Avg. Trade [%]",
+                    "Max. Trade Duration",
+                    "Avg. Trade Duration",
+                    "Profit Factor",
+                    "Expectancy [%]",
+                    "SQN",
+                    "Kelly Criterion",
+                ]
+
+                concise_stats = {}
+                if stats is not None:
+                    try:
+                        for key in key_metrics:
+                            if key in stats:
+                                val = stats[key]
+                                if isinstance(val, float):
+                                    concise_stats[key] = round(val, 2)
+                                else:
+                                    concise_stats[key] = val
+                    except Exception:
+                        concise_stats = {}
+
+                combined_result["optimization_stats"] = clean_for_json(concise_stats)
 
                 with open(filename, "w") as f:
                     json.dump(combined_result, f, indent=4)
