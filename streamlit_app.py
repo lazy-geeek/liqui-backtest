@@ -70,42 +70,49 @@ if config:
 
     if not data_df.empty:
         st.success("Data loaded successfully!")
-        st.dataframe(data_df.head())  # Show a preview of the data
+        tab1, tab2 = st.tabs(["Detailed Data", "Liquidation Charts"])
 
-        st.subheader("Liquidation Charts")
-        # Create Buy Liquidations Chart
-        buy_chart = px.bar(
-            data_df,
-            x=data_df.index,
-            y="Liq_Buy_Size",
-            title="Buy Liquidations (USD)",
-            labels={"index": "Timestamp", "Liq_Buy_Size": "Liquidation Amount (USD)"},
-            color_discrete_sequence=px.colors.qualitative.Pastel,  # Optional: Use a color scheme
-        )
-        buy_chart.update_layout(
-            xaxis_title="Timestamp", yaxis_title="Buy Liquidation Amount (USD)"
-        )
-        st.plotly_chart(buy_chart, use_container_width=True)
+        with tab1:
+            st.subheader("Detailed Data Table")
+            st.dataframe(
+                data_df, use_container_width=True
+            )  # Display the full dataframe interactively
 
-        # Create Sell Liquidations Chart
-        sell_chart = px.bar(
-            data_df,
-            x=data_df.index,
-            y="Liq_Sell_Size",
-            title="Sell Liquidations (USD)",
-            labels={"index": "Timestamp", "Liq_Sell_Size": "Liquidation Amount (USD)"},
-            color_discrete_sequence=px.colors.qualitative.Pastel1,  # Optional: Use a different color scheme
-        )
-        sell_chart.update_layout(
-            xaxis_title="Timestamp", yaxis_title="Sell Liquidation Amount (USD)"
-        )
-        st.plotly_chart(sell_chart, use_container_width=True)
+        with tab2:
+            st.subheader("Liquidation Charts")
+            # Create Buy Liquidations Chart
+            buy_chart = px.bar(
+                data_df,
+                x=data_df.index,
+                y="Liq_Buy_Size",
+                title="Buy Liquidations (USD)",
+                labels={
+                    "index": "Timestamp",
+                    "Liq_Buy_Size": "Liquidation Amount (USD)",
+                },
+                color_discrete_sequence=px.colors.qualitative.Pastel,  # Optional: Use a color scheme
+            )
+            buy_chart.update_layout(
+                xaxis_title="Timestamp", yaxis_title="Buy Liquidation Amount (USD)"
+            )
+            st.plotly_chart(buy_chart, use_container_width=True)
 
-        # --- Detailed Data Table ---
-        st.subheader("Detailed Data Table")
-        st.dataframe(
-            data_df, use_container_width=True
-        )  # Display the full dataframe interactively
+            # Create Sell Liquidations Chart
+            sell_chart = px.bar(
+                data_df,
+                x=data_df.index,
+                y="Liq_Sell_Size",
+                title="Sell Liquidations (USD)",
+                labels={
+                    "index": "Timestamp",
+                    "Liq_Sell_Size": "Liquidation Amount (USD)",
+                },
+                color_discrete_sequence=px.colors.qualitative.Pastel1,  # Optional: Use a different color scheme
+            )
+            sell_chart.update_layout(
+                xaxis_title="Timestamp", yaxis_title="Sell Liquidation Amount (USD)"
+            )
+            st.plotly_chart(sell_chart, use_container_width=True)
 
         # Charts are now generated above
     else:  # Handle empty DataFrame case
