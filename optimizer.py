@@ -198,6 +198,10 @@ if __name__ == "__main__":
         "liquidation_aggregation_minutes", 5
     )
 
+    average_lookback_period_days = backtest_settings.get(
+        "average_lookback_period_days", 7
+    )
+
     # Calculate margin
     try:
         lev_float = float(leverage)
@@ -213,6 +217,7 @@ if __name__ == "__main__":
     print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
     print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
+    print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
     print("-" * 30)
 
     # 3. Fetch and Prepare Data (once)
@@ -223,6 +228,7 @@ if __name__ == "__main__":
         start_date,
         end_date,
         liquidation_aggregation_minutes=liquidation_aggregation_minutes,
+        average_lookback_period_days=average_lookback_period_days,
     )
 
     if data.empty:
