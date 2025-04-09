@@ -9,7 +9,7 @@
         "liquidation_aggregation_minutes": 5,
         "leverage": 5,
         "modus": "buy",
-        "average_lookback_period_days": 14
+        "average_lookback_period_days": 21
     },
     "strategy_parameters": {
         "average_liquidation_multiplier": 4.0,

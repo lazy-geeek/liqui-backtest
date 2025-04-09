@@ -173,6 +173,7 @@ if __name__ == "__main__":
     # 1. Load Configuration
     config = load_config(CONFIG_FILE)
     backtest_settings = config.get("backtest_settings", {})
+    modus = backtest_settings.get("modus", "both")
     # We don't need strategy_params from config here, as they'll be optimized
     app_settings = config.get("app_settings", {})  # Still needed for debug_mode default
     optimization_settings = config.get("optimization_settings", {})
@@ -218,6 +219,7 @@ if __name__ == "__main__":
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
     print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
     print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
+    print(f"Modus: {modus}")
     print("-" * 30)
 
     # 3. Fetch and Prepare Data (once)
