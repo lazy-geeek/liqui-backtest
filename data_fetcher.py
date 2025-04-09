@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import numpy as np
 
 load_dotenv()
 
@@ -294,12 +295,14 @@ def prepare_data(
 
     merged_df["Avg_Liq_Buy"] = (
         merged_df["Liq_Buy_Size"]
+        .replace(0, np.nan)
         .rolling(window=lookback_periods, min_periods=1)
         .mean()
         .fillna(0)
     )
     merged_df["Avg_Liq_Sell"] = (
         merged_df["Liq_Sell_Size"]
+        .replace(0, np.nan)
         .rolling(window=lookback_periods, min_periods=1)
         .mean()
         .fillna(0)
@@ -307,6 +310,9 @@ def prepare_data(
 
     # Filter to original start_dt
     merged_df = merged_df[(merged_df.index >= start_dt) & (merged_df.index < end_dt)]
+
+    # Replace any remaining NaNs in the final DataFrame with zeros
+    merged_df = merged_df.fillna(0)
 
     print("Data preparation complete.")
     return merged_df
