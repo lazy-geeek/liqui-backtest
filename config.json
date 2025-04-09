@@ -8,13 +8,13 @@
         "commission_percentage": 0.04,
         "liquidation_aggregation_minutes": 5,
         "leverage": 5,
-        "modus": "buy"
+        "modus": "buy",
+        "average_lookback_period_days": 7
     },
     "strategy_parameters": {
-        "buy_liquidation_threshold_usd": 100000,
-        "sell_liquidation_threshold_usd": 100000,
-        "stop_loss_percentage": 1.0,
-        "take_profit_percentage": 2.0,
+        "average_liquidation_multiplier": 4.0,
+        "stop_loss_percentage": 3.0,
+        "take_profit_percentage": 4.0,
         "exit_on_opposite_signal": false,
         "slippage_percentage_per_side": 0.05,
         "position_size_fraction": 0.01
@@ -27,15 +27,10 @@
         "target_metric": "Equity Final [$]"
     },
     "optimization_ranges": {
-        "buy_liquidation_threshold_usd": {
-            "start": 10000,
-            "end": 200000,
-            "step": 10000
-        },
-        "sell_liquidation_threshold_usd": {
-            "start": 100000,
-            "end": 1000000,
-            "step": 100000
+        "average_liquidation_multiplier": {
+            "start": 1.0,
+            "end": 10.0,
+            "step": 0.5
         },
         "stop_loss_percentage": {
             "start": 0.5,

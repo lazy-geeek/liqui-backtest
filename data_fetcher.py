@@ -211,6 +211,7 @@ def prepare_data(
     start_dt: datetime,
     end_dt: datetime,
     liquidation_aggregation_minutes: int = 5,
+    average_lookback_period_days: int = 7,
 ) -> pd.DataFrame:
     """
     Fetches OHLCV and liquidation data, then merges them.
@@ -221,14 +222,17 @@ def prepare_data(
         start_dt: Start datetime object (timezone-aware).
         end_dt: End datetime object (timezone-aware).
         liquidation_aggregation_minutes: Number of minutes over which to aggregate liquidation sums.
+        average_lookback_period_days: Number of days for average liquidation calculation.
 
     Returns:
-        Pandas DataFrame with OHLCV data merged with aggregated liquidation sizes.
-        Columns: ['Open', 'High', 'Low', 'Close', 'Volume', 'Liq_Buy_Size', 'Liq_Sell_Size',
-                  'Liq_Buy_Aggregated', 'Liq_Sell_Aggregated']
+        Pandas DataFrame with OHLCV data merged with aggregated liquidation sizes and averages.
     """
-    ohlcv_df = fetch_ohlcv(symbol, timeframe, start_dt, end_dt)
-    liq_df = fetch_liquidations(symbol, timeframe, start_dt, end_dt)
+    from datetime import timedelta
+
+    fetch_start_dt = start_dt - timedelta(days=average_lookback_period_days)
+
+    ohlcv_df = fetch_ohlcv(symbol, timeframe, fetch_start_dt, end_dt)
+    liq_df = fetch_liquidations(symbol, timeframe, fetch_start_dt, end_dt)
 
     if ohlcv_df.empty:
         print("OHLCV data is empty, cannot proceed with merge.")
@@ -240,12 +244,14 @@ def prepare_data(
         )
         ohlcv_df["Liq_Buy_Size"] = 0.0
         ohlcv_df["Liq_Sell_Size"] = 0.0
-        # Also add aggregated columns as zero
         ohlcv_df["Liq_Buy_Aggregated"] = 0.0
         ohlcv_df["Liq_Sell_Aggregated"] = 0.0
+        ohlcv_df["Avg_Liq_Buy"] = 0.0
+        ohlcv_df["Avg_Liq_Sell"] = 0.0
+        # Filter to original start_dt
+        ohlcv_df = ohlcv_df[(ohlcv_df.index >= start_dt) & (ohlcv_df.index < end_dt)]
         return ohlcv_df
 
-    # Aggregate liquidations per OHLCV candle interval
     liq_df = liq_df.set_index("timestamp")
 
     buy_liq = liq_df[liq_df["side"] == "BUY"]["cumulated_usd_size"]
@@ -265,7 +271,7 @@ def prepare_data(
         ["Liq_Buy_Size", "Liq_Sell_Size"]
     ].fillna(0.0)
 
-    # Calculate rolling sums over the specified aggregation window (in minutes)
+    # Rolling sum over aggregation window (short-term)
     window = liquidation_aggregation_minutes
     merged_df["Liq_Buy_Aggregated"] = (
         merged_df["Liq_Buy_Size"].rolling(window=window, min_periods=1).sum().fillna(0)
@@ -273,6 +279,34 @@ def prepare_data(
     merged_df["Liq_Sell_Aggregated"] = (
         merged_df["Liq_Sell_Size"].rolling(window=window, min_periods=1).sum().fillna(0)
     )
+
+    # Rolling average over lookback period (long-term)
+    # Calculate number of periods in lookback window
+    tf_minutes = 1
+    if timeframe.endswith("m"):
+        tf_minutes = int(timeframe[:-1])
+    elif timeframe.endswith("h"):
+        tf_minutes = int(timeframe[:-1]) * 60
+    elif timeframe.endswith("d"):
+        tf_minutes = int(timeframe[:-1]) * 60 * 24
+
+    lookback_periods = int((average_lookback_period_days * 24 * 60) / tf_minutes)
+
+    merged_df["Avg_Liq_Buy"] = (
+        merged_df["Liq_Buy_Size"]
+        .rolling(window=lookback_periods, min_periods=1)
+        .mean()
+        .fillna(0)
+    )
+    merged_df["Avg_Liq_Sell"] = (
+        merged_df["Liq_Sell_Size"]
+        .rolling(window=lookback_periods, min_periods=1)
+        .mean()
+        .fillna(0)
+    )
+
+    # Filter to original start_dt
+    merged_df = merged_df[(merged_df.index >= start_dt) & (merged_df.index < end_dt)]
 
     print("Data preparation complete.")
     return merged_df

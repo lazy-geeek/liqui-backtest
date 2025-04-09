@@ -12,8 +12,7 @@ class LiquidationStrategy(Strategy):
     # --- Strategy Parameters ---
     # These will be injected by backtesting.py from the config file.
     # Default values here are placeholders if not provided via run() or optimize().
-    buy_liquidation_threshold_usd = 5000
-    sell_liquidation_threshold_usd = 5000
+    average_liquidation_multiplier = 4.0
     stop_loss_percentage = 1.0
     take_profit_percentage = 2.0
     exit_on_opposite_signal = False
@@ -32,6 +31,14 @@ class LiquidationStrategy(Strategy):
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
         self.sell_liq = self.data.Liq_Sell_Size
+
+        # Aggregated liquidation sums (short-term)
+        self.buy_liq_agg = self.data.Liq_Buy_Aggregated
+        self.sell_liq_agg = self.data.Liq_Sell_Aggregated
+
+        # Average liquidation over lookback period (long-term)
+        self.avg_buy_liq = self.data.Avg_Liq_Buy
+        self.avg_sell_liq = self.data.Avg_Liq_Sell
 
         # Convert slippage percentage to decimal for calculations
         self.entry_slippage = self.slippage_percentage_per_side / 100.0
@@ -52,8 +59,11 @@ class LiquidationStrategy(Strategy):
         current_price = self.data.Close[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
         sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
-        buy_signal = buy_liq_agg > self.buy_liquidation_threshold_usd
-        sell_signal = sell_liq_agg > self.sell_liquidation_threshold_usd
+        buy_threshold = self.avg_buy_liq[-1] * self.average_liquidation_multiplier
+        sell_threshold = self.avg_sell_liq[-1] * self.average_liquidation_multiplier
+
+        buy_signal = buy_liq_agg > buy_threshold
+        sell_signal = sell_liq_agg > sell_threshold
 
         # --- Entry Logic ---
         # Only enter if not already in a position AND no open trades exist

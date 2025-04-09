@@ -112,7 +112,17 @@ if __name__ == "__main__":
 
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
-    strategy_params = config.get("strategy_parameters", {})
+    strategy_params = config.get("strategy_parameters", {}).copy()
+
+    # Remove old fixed threshold params if present
+    strategy_params.pop("buy_liquidation_threshold_usd", None)
+    strategy_params.pop("sell_liquidation_threshold_usd", None)
+
+    # Add average_liquidation_multiplier explicitly (in case missing)
+    avg_mult = config.get("strategy_parameters", {}).get(
+        "average_liquidation_multiplier", 4.0
+    )
+    strategy_params["average_liquidation_multiplier"] = avg_mult
 
     # Pass modus from backtest_settings into strategy_params
     modus = backtest_settings.get("modus", "both")
@@ -138,6 +148,9 @@ if __name__ == "__main__":
     leverage = backtest_settings.get("leverage", 1)
     liquidation_aggregation_minutes = backtest_settings.get(
         "liquidation_aggregation_minutes", 5
+    )
+    average_lookback_period_days = backtest_settings.get(
+        "average_lookback_period_days", 7
     )
 
     # Calculate margin
@@ -175,6 +188,7 @@ if __name__ == "__main__":
         start_date,
         end_date,
         liquidation_aggregation_minutes=liquidation_aggregation_minutes,
+        average_lookback_period_days=average_lookback_period_days,
     )
 
     if data.empty:
@@ -191,7 +205,9 @@ if __name__ == "__main__":
         "Liq_Buy_Size",
         "Liq_Sell_Size",
         "Liq_Buy_Aggregated",
-        "Liq_Sell_Aggregated",  # Added aggregated columns check
+        "Liq_Sell_Aggregated",
+        "Avg_Liq_Buy",
+        "Avg_Liq_Sell",
     ]
     missing_cols = [col for col in required_cols if col not in data.columns]
     if missing_cols:
