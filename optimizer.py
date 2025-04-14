@@ -6,10 +6,11 @@ from backtesting import Backtest
 import warnings
 import time  # To time the optimization
 import sys  # For exiting
+import os
 
 # Import our custom modules and refactored functions
 import data_fetcher
-from strategies import LiquidationStrategy
+import importlib
 from liqui_backtester import load_config  # Use the loader from the refactored script
 
 import multiprocessing as mp
@@ -172,9 +173,31 @@ if __name__ == "__main__":
 
     # 1. Load Configuration
     config = load_config(CONFIG_FILE)
+    active_strategy = config.get("active_strategy")
+    if not active_strategy:
+        print("Error: 'active_strategy' not set in config.json")
+        exit(1)
+    strategy_config_path = os.path.join("strategies", active_strategy, "config.json")
+    if not os.path.exists(strategy_config_path):
+        print(f"Error: Strategy config not found at {strategy_config_path}")
+        exit(1)
+    strategy_config = load_config(strategy_config_path)
+
+    # Dynamically import the strategy class
+    strategy_module_path = f"strategies.{active_strategy}.strategy"
+    strategy_module = importlib.import_module(strategy_module_path)
+    # Find the strategy class (assume only one class ending with 'Strategy')
+    strategy_class = None
+    for attr in dir(strategy_module):
+        if attr.endswith("Strategy"):
+            strategy_class = getattr(strategy_module, attr)
+            break
+    if strategy_class is None:
+        print(f"Error: No strategy class found in {strategy_module_path}")
+        exit(1)
+
     backtest_settings = config.get("backtest_settings", {})
     modus = backtest_settings.get("modus", "both")
-    # We don't need strategy_params from config here, as they'll be optimized
     app_settings = config.get("app_settings", {})  # Still needed for debug_mode default
     optimization_settings = config.get("optimization_settings", {})
     target_metric = optimization_settings.get("target_metric", "Sharpe Ratio")
@@ -263,14 +286,14 @@ if __name__ == "__main__":
     # We pass the base settings here. Strategy params are handled by optimize().
     bt = Backtest(
         data,
-        LiquidationStrategy,
+        strategy_class,
         cash=initial_cash,
         commission=commission_decimal,
         margin=margin,
     )
 
     # 5. Build Optimization Parameter Grid from Config
-    param_grid = build_param_grid(config)
+    param_grid = build_param_grid(strategy_config)
 
     # Calculate and print total number of parameter combinations
     from functools import reduce

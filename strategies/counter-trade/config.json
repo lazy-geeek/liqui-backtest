@@ -1,0 +1,27 @@
+{
+    "strategy_parameters": {
+        "average_liquidation_multiplier": 4.0,
+        "stop_loss_percentage": 3.0,
+        "take_profit_percentage": 4.0,
+        "exit_on_opposite_signal": false,
+        "slippage_percentage_per_side": 0.05,
+        "position_size_fraction": 0.01
+    },
+    "optimization_ranges": {
+        "average_liquidation_multiplier": {
+            "start": 2.0,
+            "end": 10.0,
+            "step": 0.5
+        },
+        "stop_loss_percentage": {
+            "start": 0.5,
+            "end": 5.0,
+            "step": 0.5
+        },
+        "take_profit_percentage": {
+            "start": 1,
+            "end": 7.0,
+            "step": 0.5
+        }
+    }
+}

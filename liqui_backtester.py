@@ -21,7 +21,7 @@ warnings.filterwarnings(
 
 # Import our custom modules
 import data_fetcher
-from strategies import LiquidationStrategy  # Import the specific strategy class
+import importlib
 
 # --- Configuration Loading ---
 CONFIG_FILE = "config.json"
@@ -96,13 +96,36 @@ def run_single_backtest(
 if __name__ == "__main__":
     config = load_config(CONFIG_FILE)
 
+    # Load active strategy and its config
+    active_strategy = config.get("active_strategy")
+    if not active_strategy:
+        print("Error: 'active_strategy' not set in config.json")
+        exit(1)
+    strategy_config_path = os.path.join("strategies", active_strategy, "config.json")
+    if not os.path.exists(strategy_config_path):
+        print(f"Error: Strategy config not found at {strategy_config_path}")
+        exit(1)
+    strategy_config = load_config(strategy_config_path)
+
+    # Dynamically import the strategy class
+    strategy_module_path = f"strategies.{active_strategy}.strategy"
+    strategy_module = importlib.import_module(strategy_module_path)
+    # Find the strategy class (assume only one class ending with 'Strategy')
+    strategy_class = None
+    for attr in dir(strategy_module):
+        if attr.endswith("Strategy"):
+            strategy_class = getattr(strategy_module, attr)
+            break
+    if strategy_class is None:
+        print(f"Error: No strategy class found in {strategy_module_path}")
+        exit(1)
+
     # Delete all previously generated backtest HTML files
     print("Deleting old backtest HTML files...")
     deleted_count = 0
     for html_file in glob.glob("backtest_*.html"):
         try:
             os.remove(html_file)
-            # print(f"Deleted old backtest file: {html_file}")
             deleted_count += 1
         except Exception as e:
             print(f"Could not delete {html_file}: {e}")
@@ -112,17 +135,7 @@ if __name__ == "__main__":
 
     # Extract settings from config
     backtest_settings = config.get("backtest_settings", {})
-    strategy_params = config.get("strategy_parameters", {}).copy()
-
-    # Remove old fixed threshold params if present
-    strategy_params.pop("buy_liquidation_threshold_usd", None)
-    strategy_params.pop("sell_liquidation_threshold_usd", None)
-
-    # Add average_liquidation_multiplier explicitly (in case missing)
-    avg_mult = config.get("strategy_parameters", {}).get(
-        "average_liquidation_multiplier", 4.0
-    )
-    strategy_params["average_liquidation_multiplier"] = avg_mult
+    strategy_params = strategy_config.get("strategy_parameters", {}).copy()
 
     # Pass modus from backtest_settings into strategy_params
     modus = backtest_settings.get("modus", "both")
@@ -271,7 +284,7 @@ if __name__ == "__main__":
     # 2. Run Backtest using the refactored function
     stats, bt = run_single_backtest(
         data=data,
-        strategy_class=LiquidationStrategy,
+        strategy_class=strategy_class,
         strategy_params=strategy_params,
         initial_cash=initial_cash,
         commission_decimal=commission_decimal,

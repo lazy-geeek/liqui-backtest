@@ -1,7 +1,7 @@
 from backtesting import Strategy
 
 
-class LiquidationStrategy(Strategy):
+class CounterTradeStrategy(Strategy):
     """
     A trading strategy based on aggregated liquidation data.
 
