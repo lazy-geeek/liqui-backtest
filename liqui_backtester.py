@@ -20,7 +20,7 @@ warnings.filterwarnings(
 )
 
 # Import our custom modules
-import data_fetcher
+from src import data_fetcher
 import importlib
 
 # --- Configuration Loading ---
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     os.makedirs(results_dir, exist_ok=True)
 
     # Dynamically import the strategy class
-    strategy_module_path = f"strategies.{active_strategy}.strategy"
+    strategy_module_path = f"src.strategies.{active_strategy}.strategy"
     strategy_module = importlib.import_module(strategy_module_path)
     # Find the strategy class (assume only one class ending with 'Strategy')
     strategy_class = None

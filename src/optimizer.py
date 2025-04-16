@@ -5,14 +5,14 @@ import time
 import importlib
 import multiprocessing as mp
 from backtesting import Backtest
-import data_fetcher
+from src import data_fetcher
 from liqui_backtester import load_config
 
 # Import our new modules
-from optimizer_config import load_all_configs, get_backtest_settings
-from optimizer_params import build_param_grid, calculate_total_combinations
+from src.optimizer_config import load_all_configs, get_backtest_settings
+from src.optimizer_params import build_param_grid, calculate_total_combinations
 from optimizer_run import run_optimization
-from optimizer_results import process_and_save_results
+from src.optimizer_results import process_and_save_results
 
 # Ensure multiprocessing start method is 'fork'
 if mp.get_start_method(allow_none=False) != "fork":
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     print("-" * 30)
 
     # 3. Dynamically import the strategy class
-    strategy_module_path = f"strategies.{active_strategy}.strategy"
+    strategy_module_path = f"src.strategies.{active_strategy}.strategy"
     strategy_module = importlib.import_module(strategy_module_path)
     # Find the strategy class (assume only one class ending with 'Strategy')
     strategy_class = None

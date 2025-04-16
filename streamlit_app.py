@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timezone
 import json
-import data_fetcher  # Import our data fetching module
+from src import data_fetcher  # Import our data fetching module
 
 # --- Configuration Loading ---
 CONFIG_FILE = "config.json"
