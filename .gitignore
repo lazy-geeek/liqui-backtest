@@ -179,6 +179,7 @@ PLAN.md
 
 cache/
 optimization_results/
+backtest_results/
 
 *.csv
 optimization_plan.md

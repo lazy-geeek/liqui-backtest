@@ -107,6 +107,10 @@ if __name__ == "__main__":
         exit(1)
     strategy_config = load_config(strategy_config_path)
 
+    # Create results directory for this strategy
+    results_dir = os.path.join("strategies", active_strategy, "backtest_results")
+    os.makedirs(results_dir, exist_ok=True)
+
     # Dynamically import the strategy class
     strategy_module_path = f"strategies.{active_strategy}.strategy"
     strategy_module = importlib.import_module(strategy_module_path)
@@ -120,10 +124,10 @@ if __name__ == "__main__":
         print(f"Error: No strategy class found in {strategy_module_path}")
         exit(1)
 
-    # Delete all previously generated backtest HTML files
-    print("Deleting old backtest HTML files...")
+    # Delete all previously generated backtest HTML files for this strategy
+    print(f"Deleting old backtest HTML files from {results_dir}...")
     deleted_count = 0
-    for html_file in glob.glob("backtest_*.html"):
+    for html_file in glob.glob(os.path.join(results_dir, "backtest_*.html")):
         try:
             os.remove(html_file)
             deleted_count += 1
@@ -300,7 +304,8 @@ if __name__ == "__main__":
     # Generate filename based on config settings
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    plot_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
+    base_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
+    plot_filename = os.path.join(results_dir, base_filename)
     print(f"Saving plot to {plot_filename}...")
     try:
         # Use the returned 'bt' object for plotting
