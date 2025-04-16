@@ -1,26 +1,22 @@
-import json
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from backtesting import Backtest
+"""Main optimization orchestrator that coordinates the optimization process."""
+
 import warnings
-import time  # To time the optimization
-import sys  # For exiting
-import os
-
-# Import our custom modules and refactored functions
-import data_fetcher
+import time
 import importlib
-from liqui_backtester import load_config  # Use the loader from the refactored script
-
 import multiprocessing as mp
+from backtesting import Backtest
+import data_fetcher
+from liqui_backtester import load_config
+
+# Import our new modules
+from optimizer_config import load_all_configs, get_backtest_settings
+from optimizer_params import build_param_grid, calculate_total_combinations
+from optimizer_run import run_optimization
+from optimizer_results import process_and_save_results
 
 # Ensure multiprocessing start method is 'fork'
 if mp.get_start_method(allow_none=False) != "fork":
     mp.set_start_method("fork")
-
-# --- Configuration ---
-CONFIG_FILE = "config.json"
 
 # Suppress specific warnings (optional, but can clean up output)
 warnings.filterwarnings(
@@ -31,7 +27,6 @@ warnings.filterwarnings(
     message=".*A contingent SL/TP order would execute in the same bar.*",
     module="backtesting.*",
 )
-# Ignore potential RuntimeWarning from numpy comparing NaN
 warnings.filterwarnings(
     "ignore",
     message="invalid value encountered in scalar divide",
@@ -47,139 +42,54 @@ warnings.filterwarnings(
 )
 
 
-# --- Helper Function to Build Parameter Grid ---
-def build_param_grid(config: dict) -> dict:
-    """Builds the parameter grid for optimization from config."""
-    param_grid = {}
-    optimization_ranges = config.get("optimization_ranges")
-    if not optimization_ranges:
-        print("Error: 'optimization_ranges' section not found in config.json")
-        sys.exit(1)
-
-    print("Building Optimization Parameter Grid from config...")
-    for param_name, settings in optimization_ranges.items():
-        if "values" in settings:
-            # Direct list of values (e.g., for booleans)
-            param_grid[param_name] = settings["values"]
-            print(f"  {param_name}: Using values {settings['values']}")
-        elif "start" in settings and "end" in settings and "step" in settings:
-            # Range defined by start, end, step
-            start, end, step = settings["start"], settings["end"], settings["step"]
-            if not isinstance(step, (int, float)) or step <= 0:
-                print(
-                    f"Error: Invalid step value '{step}' for parameter '{param_name}' in config. Must be positive number."
-                )
-                sys.exit(1)
-
-            if (
-                isinstance(step, int)
-                and isinstance(start, int)
-                and isinstance(end, int)
-            ):
-                # Use Python's range for integers
-                # Add step to end because range's stop is exclusive
-                param_grid[param_name] = range(start, end + step, step)
-                print(
-                    f"  {param_name}: Using range(start={start}, stop={end + step}, step={step})"
-                )
-            else:
-                # Use list comprehension for floats to ensure hashable types
-                decimals = 0
-                if isinstance(step, float):
-                    step_str = str(step)
-                    if "." in step_str:
-                        decimals = len(step_str.split(".")[-1])
-                else:  # Handle potential float steps like 1.0
-                    step = float(step)
-                    start = float(start)
-                    end = float(end)
-
-                # Generate range using a loop and round
-                current = start
-                values = []
-                # Use a small tolerance for float comparison
-                tolerance = step / 1e6
-                while current <= end + tolerance:
-                    values.append(round(current, decimals if decimals > 0 else 2))
-                    current += step
-
-                param_grid[param_name] = values
-                print(
-                    f"  {param_name}: Using generated list (start={start}, stop={end}, step={step}) -> {len(values)} values"
-                )
-        else:
-            print(
-                f"Warning: Invalid configuration for parameter '{param_name}' in optimization_ranges. Skipping."
-            )
-
-    # Add non-optimized parameters from other config sections
-    strategy_defaults = config.get("strategy_parameters", {})
-    app_settings = config.get("app_settings", {})
-
-    param_grid["slippage_percentage_per_side"] = strategy_defaults.get(
-        "slippage_percentage_per_side", 0.05
-    )
-    param_grid["position_size_fraction"] = strategy_defaults.get(
-        "position_size_fraction", 0.01
-    )
-    print(
-        f"  slippage_percentage_per_side: {param_grid['slippage_percentage_per_side']} (fixed)"
-    )
-    print(f"  position_size_fraction: {param_grid['position_size_fraction']} (fixed)")
-
-    # Adjust param_grid based on modus
-    modus = config.get("backtest_settings", {}).get("modus", "both")
-    if modus == "buy":
-        # Remove sell threshold from optimization
-        param_grid.pop("sell_liquidation_threshold_usd", None)
-    elif modus == "sell":
-        # Remove buy threshold from optimization
-        param_grid.pop("buy_liquidation_threshold_usd", None)
-    # else 'both': keep both thresholds
-
-    # Handle exit_on_opposite_signal optimization based on modus and config flag
-    optimization_settings = config.get("optimization_settings", {})
-    optimize_exit_flag = optimization_settings.get(
-        "optimize_exit_signal_if_modus_both", False
-    )
-
-    # Read fixed/default value from strategy_parameters
-    fixed_exit_value = config.get("strategy_parameters", {}).get(
-        "exit_on_opposite_signal", False
-    )
-
-    if modus == "both" and optimize_exit_flag:
-        # Optimize over both True and False
-        param_grid["exit_on_opposite_signal"] = [False, True]
-        print("  exit_on_opposite_signal: optimizing over [False, True] (modus=both)")
-    else:
-        # Use fixed value
-        param_grid["exit_on_opposite_signal"] = fixed_exit_value
-        print(
-            f"  exit_on_opposite_signal: fixed at {fixed_exit_value} (optimization disabled or modus != both)"
-        )
-
-    return param_grid
-
-
-# --- Main Optimization Execution ---
 if __name__ == "__main__":
     start_time = time.time()
     print("--- Starting Parameter Optimization ---")
 
-    # 1. Load Configuration
-    config = load_config(CONFIG_FILE)
-    active_strategy = config.get("active_strategy")
-    if not active_strategy:
-        print("Error: 'active_strategy' not set in config.json")
-        exit(1)
-    strategy_config_path = os.path.join("strategies", active_strategy, "config.json")
-    if not os.path.exists(strategy_config_path):
-        print(f"Error: Strategy config not found at {strategy_config_path}")
-        exit(1)
-    strategy_config = load_config(strategy_config_path)
+    # 1. Load all configurations
+    configs = load_all_configs("config.json")
+    config = configs["main_config"]
+    strategy_config = configs["strategy_config"]
+    active_strategy = configs["active_strategy"]
 
-    # Dynamically import the strategy class
+    # 2. Get backtest settings
+    backtest_settings = get_backtest_settings(config)
+    symbol = backtest_settings["symbol"]
+    timeframe = backtest_settings["timeframe"]
+    start_date = backtest_settings["start_date"]
+    end_date = backtest_settings["end_date"]
+    initial_cash = backtest_settings["initial_cash"]
+    commission_pct = backtest_settings["commission_pct"]
+    leverage = backtest_settings["leverage"]
+    liquidation_aggregation_minutes = backtest_settings[
+        "liquidation_aggregation_minutes"
+    ]
+    average_lookback_period_days = backtest_settings["average_lookback_period_days"]
+    modus = backtest_settings["modus"]
+    target_metric = backtest_settings["target_metric"]
+
+    # Calculate margin
+    try:
+        lev_float = float(leverage)
+        if lev_float <= 0:
+            lev_float = 1.0
+    except (ValueError, TypeError):
+        lev_float = 1.0
+    margin = 1.0 / lev_float
+    commission_decimal = commission_pct / 100.0
+
+    # Print optimization settings
+    print(f"Optimization Target: {target_metric}")
+    print(f"Symbol: {symbol}, Timeframe: {timeframe}")
+    print(f"Period: {start_date} to {end_date}")
+    print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
+    print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
+    print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
+    print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
+    print(f"Modus: {modus}")
+    print("-" * 30)
+
+    # 3. Dynamically import the strategy class
     strategy_module_path = f"strategies.{active_strategy}.strategy"
     strategy_module = importlib.import_module(strategy_module_path)
     # Find the strategy class (assume only one class ending with 'Strategy')
@@ -192,56 +102,7 @@ if __name__ == "__main__":
         print(f"Error: No strategy class found in {strategy_module_path}")
         exit(1)
 
-    backtest_settings = config.get("backtest_settings", {})
-    modus = backtest_settings.get("modus", "both")
-    app_settings = config.get("app_settings", {})  # Still needed for debug_mode default
-    optimization_settings = config.get("optimization_settings", {})
-    target_metric = optimization_settings.get("target_metric", "Sharpe Ratio")
-
-    # 2. Parse Backtest Settings from Config
-    symbol = backtest_settings.get("symbol", "SUIUSDT")
-    timeframe = backtest_settings.get("timeframe", "5m")
-    try:
-        start_date_str = backtest_settings.get("start_date_iso", "2025-01-01T00:00:00Z")
-        end_date_str = backtest_settings.get("end_date_iso", "2025-04-01T00:00:00Z")
-        start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-        end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-    except ValueError as e:
-        print(f"Error parsing date strings from config: {e}")
-        exit(1)
-
-    initial_cash = backtest_settings.get("initial_cash", 10000)
-    commission_pct = backtest_settings.get("commission_percentage", 0.04)
-    commission_decimal = commission_pct / 100.0
-    leverage = backtest_settings.get("leverage", 1)
-    liquidation_aggregation_minutes = backtest_settings.get(
-        "liquidation_aggregation_minutes", 5
-    )
-
-    average_lookback_period_days = backtest_settings.get(
-        "average_lookback_period_days", 7
-    )
-
-    # Calculate margin
-    try:
-        lev_float = float(leverage)
-        if lev_float <= 0:
-            lev_float = 1.0
-    except (ValueError, TypeError):
-        lev_float = 1.0
-    margin = 1.0 / lev_float
-
-    print(f"Optimization Target: {target_metric}")
-    print(f"Symbol: {symbol}, Timeframe: {timeframe}")
-    print(f"Period: {start_date} to {end_date}")
-    print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
-    print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
-    print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
-    print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
-    print(f"Modus: {modus}")
-    print("-" * 30)
-
-    # 3. Fetch and Prepare Data (once)
+    # 4. Fetch and prepare data
     print("Preparing data...")
     data = data_fetcher.prepare_data(
         symbol,
@@ -256,7 +117,7 @@ if __name__ == "__main__":
         print("No data available for optimization. Exiting.")
         exit(1)
 
-    # Basic data validation (ensure OHLC and required strategy columns exist)
+    # Basic data validation
     required_cols = [
         "Open",
         "High",
@@ -278,8 +139,7 @@ if __name__ == "__main__":
     print(f"Data prepared. Shape: {data.shape}")
     print("-" * 30)
 
-    # 4. Initialize Backtest Object
-    # We pass the base settings here. Strategy params are handled by optimize().
+    # 5. Initialize Backtest Object
     bt = Backtest(
         data,
         strategy_class,
@@ -288,262 +148,25 @@ if __name__ == "__main__":
         margin=margin,
     )
 
-    # 5. Build Optimization Parameter Grid from Config
+    # 6. Build parameter grid and calculate combinations
     param_grid = build_param_grid(strategy_config)
-
-    # Calculate and print total number of parameter combinations
-    from functools import reduce
-    import operator
-
-    lengths = []
-    for v in param_grid.values():
-        try:
-            lengths.append(len(v))
-        except TypeError:
-            # Fixed values (single scalar), count as 1
-            lengths.append(1)
-
-    total_combinations = reduce(operator.mul, lengths, 1)
+    total_combinations = calculate_total_combinations(param_grid)
     print(f"Total possible parameter combinations: {total_combinations}")
     input("Press Enter to start optimization...")
     print("-" * 30)
 
-    # 6. Run Optimization
-    print("Running optimization (this may take a long time)...")
-    try:
-        # Define a single constraint function checking all conditions
-        def check_constraints(p):
-            # Ensure parameters exist and are positive scalar values
-            # getattr provides a default if the attribute doesn't exist during checks
-            valid_tp = getattr(p, "take_profit_percentage", -1) > 0
-            valid_sl = getattr(p, "stop_loss_percentage", -1) > 0
-            # Add other simple checks here if needed, e.g.:
-            # check_p1_gt_p2 = getattr(p, 'param1', 0) > getattr(p, 'param2', -1)
-            return valid_tp and valid_sl  # and check_p1_gt_p2
+    # 7. Run optimization
+    stats, heatmap = run_optimization(bt, param_grid, target_metric)
 
-        stats, heatmap = bt.optimize(
-            maximize=target_metric,
-            return_heatmap=True,
-            # constraint=check_constraints, # Removed constraint
-            **param_grid,
-        )
-        optimization_successful = True
-    except ValueError as e:  # Catch ValueError specifically first
-        print(f"\n--- Optimization ValueError ---")
-        print(f"A ValueError occurred: {e}")  # Use correct variable 'e'
-        print(
-            "This often happens with incompatible parameter types or invalid constraints."
-        )
-        print("Please check strategy logic and parameter grid generation.")
-        optimization_successful = False
-        stats = None
-        heatmap = None
-        print("-" * 30)
-    except Exception as e:
-        print(f"\n--- Optimization Error ---")
-        print(f"An unexpected error occurred during optimization: {e}")
-        print(f"Error type: {type(e)}")
-        print("Please check parameter ranges, data quality, and strategy logic.")
-        optimization_successful = False
-        stats = None
-        heatmap = None
-        print("-" * 30)
-
-    # 7. Process and Save Results
-    if optimization_successful and stats is not None:
-        print("\n--- Optimization Complete ---")
-        total_time = time.time() - start_time
-        print(f"Total optimization time: {total_time:.2f} seconds")
-        print("-" * 30)
-
-        print("Best Parameters Found:")
-        best_params = stats["_strategy"]
-
-        # Extract best params into a cleaner dictionary
-        best_params_dict = {}
-        if best_params:
-            best_params_dict = {
-                attr: getattr(best_params, attr)
-                for attr in dir(best_params)
-                if not callable(getattr(best_params, attr))
-                and not attr.startswith("_")
-                and attr in param_grid  # Only include params that were part of the grid
-            }
-
-            # Convert any numpy scalar values to native Python types
-            for k, v in list(best_params_dict.items()):
-                try:
-                    import numpy as np
-
-                    if isinstance(v, (np.generic, np.ndarray)):
-                        best_params_dict[k] = v.item()
-                except ImportError:
-                    pass  # If numpy not available, skip
-
-            # Manually add non-optimized params for clarity
-            best_params_dict["slippage_percentage_per_side"] = param_grid[
-                "slippage_percentage_per_side"
-            ]
-            best_params_dict["position_size_fraction"] = param_grid[
-                "position_size_fraction"
-            ]
-            print(json.dumps(best_params_dict, indent=4))
-        else:
-            print("Could not extract best parameters from strategy object.")
-
-        print("\nBest Performance Stats:")
-        # Exclude the strategy object itself from the printed stats
-        print(
-            stats.drop("_strategy", errors="ignore")
-        )  # Use errors='ignore' in case _strategy isn't present
-
-        # Save best parameters to JSON
-        if best_params_dict:
-            try:
-                from datetime import datetime as dt
-                import numpy as np
-
-                def clean_for_json(obj):
-                    import pandas as pd
-
-                    if isinstance(obj, dict):
-                        return {k: clean_for_json(v) for k, v in obj.items()}
-                    elif isinstance(obj, list):
-                        return [clean_for_json(v) for v in obj]
-                    elif isinstance(obj, (np.integer, np.int64, np.int32)):
-                        return int(obj)
-                    elif isinstance(obj, (np.floating, np.float64, np.float32)):
-                        return float(obj)
-                    elif isinstance(obj, (np.ndarray,)):
-                        return obj.tolist()
-                    elif isinstance(obj, pd.Timestamp):
-                        return obj.isoformat()
-                    elif isinstance(obj, pd.Timedelta):
-                        return str(obj)
-                    else:
-                        return obj
-
-                import os
-
-                timestamp_str = dt.now().strftime("%Y%m%d_%H%M%S")
-                output_dir = os.path.join(
-                    "strategies", active_strategy, "optimization_results"
-                )
-                os.makedirs(output_dir, exist_ok=True)
-                filename = os.path.join(
-                    output_dir, f"optimization_result_{symbol}_{timestamp_str}.json"
-                )
-
-                cleaned_stats = {}
-                if stats is not None:
-                    try:
-                        cleaned_stats = clean_for_json(stats.to_dict())
-                    except Exception:
-                        cleaned_stats = {}
-
-                combined_result = {
-                    "best_params": best_params_dict,
-                    "config": config,
-                    "optimization_stats": {},
-                }
-
-                # Extract key stats only
-                key_metrics = [
-                    "Start",
-                    "End",
-                    "Duration",
-                    "Exposure Time [%]",
-                    "Equity Final [$]",
-                    "Equity Peak [$]",
-                    "Commissions [$]",
-                    "Return [%]",
-                    "Buy & Hold Return [%]",
-                    "Return (Ann.) [%]",
-                    "Volatility (Ann.) [%]",
-                    "CAGR [%]",
-                    "Sharpe Ratio",
-                    "Sortino Ratio",
-                    "Calmar Ratio",
-                    "Alpha [%]",
-                    "Beta",
-                    "Max. Drawdown [%]",
-                    "Avg. Drawdown [%]",
-                    "Max. Drawdown Duration",
-                    "Avg. Drawdown Duration",
-                    "# Trades",
-                    "Win Rate [%]",
-                    "Best Trade [%]",
-                    "Worst Trade [%]",
-                    "Avg. Trade [%]",
-                    "Max. Trade Duration",
-                    "Avg. Trade Duration",
-                    "Profit Factor",
-                    "Expectancy [%]",
-                    "SQN",
-                    "Kelly Criterion",
-                ]
-
-                concise_stats = {}
-                if stats is not None:
-                    try:
-                        for key in key_metrics:
-                            if key in stats:
-                                val = stats[key]
-                                if isinstance(val, float):
-                                    concise_stats[key] = round(val, 2)
-                                else:
-                                    concise_stats[key] = val
-                    except Exception:
-                        concise_stats = {}
-
-                combined_result["optimization_stats"] = clean_for_json(concise_stats)
-
-                with open(filename, "w") as f:
-                    json.dump(combined_result, f, indent=4)
-
-                print(f"Optimization results saved to {filename}")
-
-            except Exception as e:
-                # Modify existing error handling or add specific handling if needed
-                print(
-                    f"Error during saving results: {e}"
-                )  # Changed error message slightly for clarity
-        else:
-            print(
-                "Skipping saving best parameters JSON as they could not be extracted."
-            )
-
-        # Save heatmap
-        if heatmap is not None and not heatmap.empty:
-            # Define heatmap path with same base name as JSON results
-            base_filename = os.path.splitext(filename)[0]  # Remove .json extension
-            heatmap_filepath = base_filename + ".csv"
-            print(f"Saving optimization heatmap to {heatmap_filepath}...")
-            try:
-                # The heatmap is a Series with MultiIndex. Reset index to convert to DataFrame.
-                heatmap_df = heatmap.reset_index()
-                # Rename the value column (often 0) to the maximized metric
-                metric_name = stats.index[
-                    stats.index.str.contains(
-                        "Ratio|Return|Equity|Drawdown", case=False, regex=True
-                    )
-                ].tolist()
-                metric_name = (
-                    metric_name[0] if metric_name else "MetricValue"
-                )  # Default name if not found
-                heatmap_df.rename(
-                    columns={heatmap_df.columns[-1]: metric_name}, inplace=True
-                )
-
-                heatmap_df.to_csv(heatmap_filepath, index=False)
-                print("Heatmap saved successfully.")
-            except Exception as e:
-                print(f"Error saving heatmap to CSV: {e}")
-        else:
-            print("No heatmap data was returned or heatmap was empty.")
-
-    else:
-        print("Optimization did not complete successfully or returned no results.")
+    # 8. Process and save results
+    process_and_save_results(
+        stats=stats,
+        heatmap=heatmap,
+        param_grid=param_grid,
+        config=config,
+        active_strategy=active_strategy,
+        symbol=symbol,
+    )
 
     print("--- Optimizer Finished ---")
     print("\a")
