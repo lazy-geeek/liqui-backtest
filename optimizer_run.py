@@ -3,7 +3,8 @@
 import warnings
 import time
 import importlib
-import multiprocessing as mp
+
+# import multiprocessing as mp
 from typing import Dict, Tuple, Optional, Any
 from backtesting import Backtest
 import pandas as pd
@@ -15,8 +16,8 @@ from src.optimizer_params import build_param_grid, calculate_total_combinations
 from src.optimizer_results import process_and_save_results
 
 # Ensure multiprocessing start method is 'fork'
-if mp.get_start_method(allow_none=False) != "fork":
-    mp.set_start_method("fork")
+# if mp.get_start_method(allow_none=False) != "fork":
+#    mp.set_start_method("fork")
 
 # Suppress specific warnings (optional, but can clean up output)
 warnings.filterwarnings(

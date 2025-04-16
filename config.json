@@ -1,5 +1,5 @@
 {
-    "active_strategy": "counter-trade",
+    "active_strategy": "follow-the-flow",
     "backtest_settings": {
         "symbol": "ETHUSDT",
         "timeframe": "1m",
