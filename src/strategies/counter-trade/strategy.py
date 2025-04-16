@@ -20,6 +20,7 @@ class CounterTradeStrategy(Strategy):
     position_size_fraction = 0.01
     debug_mode = False
     modus = "both"
+    cooldown_candles = 0  # Number of candles to wait after signal before trading
 
     def init(self):
         """
@@ -27,6 +28,10 @@ class CounterTradeStrategy(Strategy):
         """
 
         super().init()
+
+        # Cooldown state tracking
+        self.signal_cooldown_counter = 0
+        self.pending_trade_type = None  # 'buy' or 'sell'
 
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
@@ -51,10 +56,13 @@ class CounterTradeStrategy(Strategy):
 
         super().next()
 
+        # Decrement cooldown counter if active
+        if self.signal_cooldown_counter > 0:
+            self.signal_cooldown_counter -= 1
+
         # Enforce strict single-position policy: if any position is open, do nothing
         if self.position:
             return
-        # Progress reporting
 
         current_price = self.data.Close[-1]
         buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
@@ -66,47 +74,49 @@ class CounterTradeStrategy(Strategy):
         sell_signal = sell_liq_agg > sell_threshold
 
         # --- Entry Logic ---
-        # Only enter if not already in a position AND no open trades exist
         if not self.position:
-            if self.modus == "buy":
-                if buy_signal:
+            # Check if cooldown just finished and we have a pending trade
+            if self.signal_cooldown_counter == 1 and self.pending_trade_type:
+                if self.pending_trade_type == "buy" and (
+                    self.modus == "buy" or self.modus == "both"
+                ):
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
                     size_fraction = self.position_size_fraction
                     if self.debug_mode:
                         print(
-                            f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                            f"DEBUG: Executing BUY after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                         )
                     self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
+                    self.pending_trade_type = None
 
-            elif self.modus == "sell":
-                if sell_signal:
+                elif self.pending_trade_type == "sell" and (
+                    self.modus == "sell" or self.modus == "both"
+                ):
                     sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
                     size_fraction = self.position_size_fraction
                     if self.debug_mode:
                         print(
-                            f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                            f"DEBUG: Executing SELL after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
                         )
                     self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
+                    self.pending_trade_type = None
 
-            else:  # modus == "both"
-                if buy_signal:
-                    sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
-                    tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+            # Check for new signals if no cooldown is active
+            elif self.signal_cooldown_counter <= 0:
+                if buy_signal and (self.modus == "buy" or self.modus == "both"):
+                    self.signal_cooldown_counter = self.cooldown_candles
+                    self.pending_trade_type = "buy"
                     if self.debug_mode:
                         print(
-                            f"DEBUG: Attempting BUY | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                            f"DEBUG: Buy signal detected. Starting {self.cooldown_candles} candle cooldown."
                         )
-                    self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
 
-                elif sell_signal:
-                    sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
-                    tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+                elif sell_signal and (self.modus == "sell" or self.modus == "both"):
+                    self.signal_cooldown_counter = self.cooldown_candles
+                    self.pending_trade_type = "sell"
                     if self.debug_mode:
                         print(
-                            f"DEBUG: Attempting SELL | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
+                            f"DEBUG: Sell signal detected. Starting {self.cooldown_candles} candle cooldown."
                         )
-                    self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
