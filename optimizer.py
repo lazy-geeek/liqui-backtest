@@ -21,10 +21,6 @@ if mp.get_start_method(allow_none=False) != "fork":
 
 # --- Configuration ---
 CONFIG_FILE = "config.json"
-OPTIMIZATION_RESULTS_CSV = "optimization_results.csv"
-OPTIMIZATION_BEST_PARAMS_JSON = (
-    "optimization_best_params.json"  # File to save best params
-)
 
 # Suppress specific warnings (optional, but can clean up output)
 warnings.filterwarnings(
@@ -362,7 +358,6 @@ if __name__ == "__main__":
 
         print("Best Parameters Found:")
         best_params = stats["_strategy"]
-        # print(best_params) # The strategy object contains the best params
 
         # Extract best params into a cleaner dictionary
         best_params_dict = {}
@@ -431,7 +426,9 @@ if __name__ == "__main__":
                 import os
 
                 timestamp_str = dt.now().strftime("%Y%m%d_%H%M%S")
-                output_dir = "optimization_results"
+                output_dir = os.path.join(
+                    "strategies", active_strategy, "optimization_results"
+                )
                 os.makedirs(output_dir, exist_ok=True)
                 filename = os.path.join(
                     output_dir, f"optimization_result_{symbol}_{timestamp_str}.json"
@@ -505,8 +502,12 @@ if __name__ == "__main__":
                     json.dump(combined_result, f, indent=4)
 
                 print(f"Optimization results saved to {filename}")
+
             except Exception as e:
-                print(f"Error saving optimization results to JSON: {e}")
+                # Modify existing error handling or add specific handling if needed
+                print(
+                    f"Error during saving results: {e}"
+                )  # Changed error message slightly for clarity
         else:
             print(
                 "Skipping saving best parameters JSON as they could not be extracted."
@@ -514,7 +515,10 @@ if __name__ == "__main__":
 
         # Save heatmap
         if heatmap is not None and not heatmap.empty:
-            print(f"Saving optimization heatmap to {OPTIMIZATION_RESULTS_CSV}...")
+            # Define heatmap path with same base name as JSON results
+            base_filename = os.path.splitext(filename)[0]  # Remove .json extension
+            heatmap_filepath = base_filename + ".csv"
+            print(f"Saving optimization heatmap to {heatmap_filepath}...")
             try:
                 # The heatmap is a Series with MultiIndex. Reset index to convert to DataFrame.
                 heatmap_df = heatmap.reset_index()
@@ -531,7 +535,7 @@ if __name__ == "__main__":
                     columns={heatmap_df.columns[-1]: metric_name}, inplace=True
                 )
 
-                heatmap_df.to_csv(OPTIMIZATION_RESULTS_CSV, index=False)
+                heatmap_df.to_csv(heatmap_filepath, index=False)
                 print("Heatmap saved successfully.")
             except Exception as e:
                 print(f"Error saving heatmap to CSV: {e}")
