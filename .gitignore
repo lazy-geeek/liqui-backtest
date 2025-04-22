@@ -187,3 +187,4 @@ optimization_best_params.json
 .rooignore
 .roo/
 .clinerules/
+.clineignore

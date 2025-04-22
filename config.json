@@ -17,6 +17,6 @@
     },
     "optimization_settings": {
         "optimize_exit_signal_if_modus_both": false,
-        "target_metric": "Equity Final [$]"
+        "target_metric": "Sharpe Ratio"
     }
 }

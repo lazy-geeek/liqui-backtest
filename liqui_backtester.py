@@ -107,8 +107,14 @@ if __name__ == "__main__":
         exit(1)
     strategy_config = load_config(strategy_config_path)
 
-    # Create results directory for this strategy
-    results_dir = os.path.join("strategies", active_strategy, "backtest_results")
+    # Extract settings from config first to get symbol
+    backtest_settings = config.get("backtest_settings", {})
+    symbol = backtest_settings.get("symbol", "SUIUSDT")
+
+    # Create results directory for this strategy/symbol combination
+    results_dir = os.path.join(
+        "strategies", active_strategy, symbol, "backtest_results"
+    )
     os.makedirs(results_dir, exist_ok=True)
 
     # Dynamically import the strategy class

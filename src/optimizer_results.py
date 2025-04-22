@@ -86,7 +86,9 @@ def process_and_save_results(
     # Save best parameters to JSON
     if best_params_dict:
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = os.path.join("strategies", active_strategy, "optimization_results")
+        output_dir = os.path.join(
+            "strategies", active_strategy, symbol, "optimization_results"
+        )
         os.makedirs(output_dir, exist_ok=True)
         filename = os.path.join(
             output_dir, f"optimization_result_{symbol}_{timestamp_str}.json"
