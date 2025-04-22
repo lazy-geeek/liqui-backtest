@@ -186,4 +186,4 @@ optimization_plan.md
 optimization_best_params.json
 .rooignore
 .roo/
-
+.clinerules/
