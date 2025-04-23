@@ -1,7 +1,13 @@
 {
     "active_strategy": "follow-the-flow",
     "backtest_settings": {
-        "symbol": "ETHUSDT",
+        "symbols": [
+            "ETHUSDT",
+            "SOLUSDT",
+            "SUIUSDT",
+            "FARTCOINUSDT",
+            "MAGICUSDT"
+        ],
         "timeframe": "1m",
         "start_date_iso": "2025-01-01T00:00:00Z",
         "end_date_iso": "2025-01-31T00:00:00Z",

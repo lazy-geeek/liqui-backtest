@@ -3,6 +3,7 @@
 import warnings
 import time
 import importlib
+from tqdm import tqdm
 
 # import multiprocessing as mp
 from typing import Dict, Tuple, Optional, Any
@@ -57,7 +58,7 @@ def run_optimization(
     Returns:
         Tuple of (stats, heatmap) or (None, None) if optimization failed
     """
-    print("Running optimization (this may take a long time)...")
+    # print("Running optimization (this may take a long time)...") # Removed for quieter output
     start_time = time.time()
 
     try:
@@ -84,12 +85,12 @@ def run_optimization(
 
     if optimization_successful:
         total_time = time.time() - start_time
-        print(f"\n--- Optimization Complete ---")
-        print(f"Total optimization time: {total_time:.2f} seconds")
-        print("-" * 30)
+        # print(f"\n--- Optimization Complete ---") # Removed for quieter output
+        # print(f"Total optimization time: {total_time:.2f} seconds") # Removed for quieter output
+        # print("-" * 30) # Removed for quieter output
         return stats, heatmap
     else:
-        print("-" * 30)
+        # print("-" * 30) # Removed for quieter output (kept for error case clarity if needed)
         return None, None
 
 
@@ -105,7 +106,7 @@ if __name__ == "__main__":
 
     # 2. Get backtest settings
     backtest_settings = get_backtest_settings(config)
-    symbol = backtest_settings["symbol"]
+    symbols = backtest_settings["symbols"]  # Read the list of symbols
     timeframe = backtest_settings["timeframe"]
     start_date = backtest_settings["start_date"]
     end_date = backtest_settings["end_date"]
@@ -129,9 +130,10 @@ if __name__ == "__main__":
     margin = 1.0 / lev_float
     commission_decimal = commission_pct / 100.0
 
-    # Print optimization settings
+    # Print general optimization settings
     print(f"Optimization Target: {target_metric}")
-    print(f"Symbol: {symbol}, Timeframe: {timeframe}")
+    print(f"Symbols to process: {', '.join(symbols)}")
+    print(f"Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
@@ -140,7 +142,7 @@ if __name__ == "__main__":
     print(f"Modus: {modus}")
     print("-" * 30)
 
-    # 3. Dynamically import the strategy class
+    # 3. Dynamically import the strategy class (outside the loop as it's the same for all symbols)
     strategy_module_path = f"src.strategies.{active_strategy}.strategy"
     strategy_module = importlib.import_module(strategy_module_path)
     # Find the strategy class (assume only one class ending with 'Strategy')
@@ -153,71 +155,87 @@ if __name__ == "__main__":
         print(f"Error: No strategy class found in {strategy_module_path}")
         exit(1)
 
-    # 4. Fetch and prepare data
-    print("Preparing data...")
-    data = data_fetcher.prepare_data(
-        symbol,
-        timeframe,
-        start_date,
-        end_date,
-        liquidation_aggregation_minutes=liquidation_aggregation_minutes,
-        average_lookback_period_days=average_lookback_period_days,
-    )
-
-    if data.empty:
-        print("No data available for optimization. Exiting.")
-        exit(1)
-
-    # Basic data validation
-    required_cols = [
-        "Open",
-        "High",
-        "Low",
-        "Close",
-        "Volume",
-        "Liq_Buy_Size",
-        "Liq_Sell_Size",
-        "Liq_Buy_Aggregated",
-        "Liq_Sell_Aggregated",
-    ]
-    missing_cols = [col for col in required_cols if col not in data.columns]
-    if missing_cols:
-        print(
-            f"Error: Dataframe missing required columns for optimization: {missing_cols}."
-        )
-        exit(1)
-
-    print(f"Data prepared. Shape: {data.shape}")
-    print("-" * 30)
-
-    # 5. Initialize Backtest Object
-    bt = Backtest(
-        data,
-        strategy_class,
-        cash=initial_cash,
-        commission=commission_decimal,
-        margin=margin,
-    )
-
-    # 6. Build parameter grid and calculate combinations
+    # 6. Build parameter grid and calculate combinations (once before the loop)
     param_grid = build_param_grid(strategy_config)
     total_combinations = calculate_total_combinations(param_grid)
     print(f"Total possible parameter combinations: {total_combinations}")
-    input("Press Enter to start optimization...")
-    print("-" * 30)
+    # Ask once before starting all symbols
+    # input("Press Enter to start optimization for all symbols...") # Removed for non-interactive run
+    # print("-" * 30) # Removed for non-interactive run
 
-    # 7. Run optimization
-    stats, heatmap = run_optimization(bt, param_grid, target_metric)
+    # --- Symbol Loop Start ---
+    progress_bar = tqdm(symbols, desc="Initializing...")
+    for symbol in progress_bar:
+        progress_bar.set_description(f"Processing: {symbol}")
+        # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
 
-    # 8. Process and save results
-    process_and_save_results(
-        stats=stats,
-        heatmap=heatmap,
-        param_grid=param_grid,
-        config=config,
-        active_strategy=active_strategy,
-        symbol=symbol,
-    )
+        # 4. Fetch and prepare data for the current symbol
+        # print("Preparing data...") # Removed for quieter output
+        data = data_fetcher.prepare_data(
+            symbol,  # Use the current symbol from the loop
+            timeframe,
+            start_date,
+            end_date,
+            liquidation_aggregation_minutes=liquidation_aggregation_minutes,
+            average_lookback_period_days=average_lookback_period_days,
+        )
 
-    print("--- Optimizer Finished ---")
+        if data.empty:
+            # Handle empty data case specifically for the symbol
+            print(f"No data available for optimization for symbol {symbol}. Skipping.")
+            continue  # Skip to the next symbol
+
+        # Basic data validation
+        required_cols = [
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "Volume",
+            "Liq_Buy_Size",
+            "Liq_Sell_Size",
+            "Liq_Buy_Aggregated",
+            "Liq_Sell_Aggregated",
+        ]
+        missing_cols = [col for col in required_cols if col not in data.columns]
+        if missing_cols:
+            print(
+                f"Error: Dataframe missing required columns for optimization: {missing_cols}."
+            )
+            print(f"Skipping symbol {symbol} due to missing data columns.")
+            continue  # Skip to the next symbol
+
+        # print(f"Data prepared for {symbol}. Shape: {data.shape}") # Removed for quieter output
+        # print("-" * 30) # Removed for quieter output
+
+        # 5. Initialize Backtest Object for the current symbol
+        bt = Backtest(
+            data,
+            strategy_class,
+            cash=initial_cash,
+            commission=commission_decimal,
+            margin=margin,
+        )
+
+        # 6. Parameter grid is built once outside the loop
+
+        # 7. Run optimization for the current symbol
+        stats, heatmap = run_optimization(bt, param_grid, target_metric)
+
+        # 8. Process and save results for the current symbol
+        process_and_save_results(
+            stats=stats,
+            heatmap=heatmap,
+            param_grid=param_grid,
+            config=config,
+            active_strategy=active_strategy,
+            symbol=symbol,  # Pass the current symbol
+        )
+
+        # print(f"--- Finished Optimization for Symbol: {symbol} ---") # Removed for quieter output
+        # --- Symbol Loop End ---
+
+    total_script_time = time.time() - start_time
+    print(f"\n--- All Optimizations Finished ---")
+    print(f"Total script execution time: {total_script_time:.2f} seconds")
     print("\a")

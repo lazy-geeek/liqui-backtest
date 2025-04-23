@@ -49,8 +49,17 @@ def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
         print(f"Error parsing date strings from config: {e}")
         sys.exit(1)
 
+    # Ensure 'symbols' is a list
+    symbols_list = backtest_settings.get("symbols", ["ETHUSDT"])  # Default if missing
+    if not isinstance(symbols_list, list):
+        print(f"Warning: 'symbols' in config is not a list. Using default: ['ETHUSDT']")
+        symbols_list = ["ETHUSDT"]
+    elif not symbols_list:  # Handle empty list case
+        print(f"Warning: 'symbols' list in config is empty. Using default: ['ETHUSDT']")
+        symbols_list = ["ETHUSDT"]
+
     return {
-        "symbol": backtest_settings.get("symbol", "SUIUSDT"),
+        "symbols": symbols_list,  # Use the validated list
         "timeframe": backtest_settings.get("timeframe", "5m"),
         "start_date": start_date,
         "end_date": end_date,

@@ -51,7 +51,7 @@ def process_and_save_results(
         print("No results to process - optimization failed")
         return
 
-    print("\nBest Parameters Found:")
+    # print("\nBest Parameters Found:") # Removed for quieter output
     best_params = stats["_strategy"]
     best_params_dict = {}
 
@@ -76,12 +76,14 @@ def process_and_save_results(
         best_params_dict["position_size_fraction"] = param_grid[
             "position_size_fraction"
         ]
-        print(json.dumps(best_params_dict, indent=4))
+        # print(json.dumps(best_params_dict, indent=4)) # Removed for quieter output
     else:
-        print("Could not extract best parameters from strategy object.")
+        print(
+            "Could not extract best parameters from strategy object."
+        )  # Keep error message
 
-    print("\nBest Performance Stats:")
-    print(stats.drop("_strategy", errors="ignore"))
+    # print("\nBest Performance Stats:") # Removed for quieter output
+    # print(stats.drop("_strategy", errors="ignore")) # Removed for quieter output
 
     # Save best parameters to JSON
     if best_params_dict:
@@ -147,13 +149,13 @@ def process_and_save_results(
 
         with open(filename, "w") as f:
             json.dump(combined_result, f, indent=4)
-        print(f"Optimization results saved to {filename}")
+        # print(f"Optimization results saved to {filename}") # Removed for quieter output
 
         # Save heatmap if available
         if heatmap is not None and not heatmap.empty:
             base_filename = os.path.splitext(filename)[0]
             heatmap_filepath = base_filename + ".csv"
-            print(f"Saving optimization heatmap to {heatmap_filepath}...")
+            # print(f"Saving optimization heatmap to {heatmap_filepath}...") # Removed for quieter output
 
             heatmap_df = heatmap.reset_index()
             metric_name = stats.index[
@@ -167,6 +169,8 @@ def process_and_save_results(
             )
 
             heatmap_df.to_csv(heatmap_filepath, index=False)
-            print("Heatmap saved successfully.")
+            # print("Heatmap saved successfully.") # Removed for quieter output
     else:
-        print("Skipping saving best parameters JSON as they could not be extracted.")
+        print(
+            "Skipping saving best parameters JSON as they could not be extracted."
+        )  # Keep error message
