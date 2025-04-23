@@ -166,7 +166,6 @@ def process_and_save_results(
 
         with open(filename, "w") as f:
             json.dump(combined_result, f, indent=4)
-        # print(f"Optimization results saved to {filename}") # Removed for quieter output
         return combined_result  # Return the data after successful save
 
         # Save heatmap if available

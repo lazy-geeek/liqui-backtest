@@ -131,9 +131,6 @@ def generate_symbol_summary_excel(
         print(f"\nNo results for symbol {symbol} to save to Excel.")
         return
 
-    print(
-        f"\n--- Saving Optimization Summary for Symbol: {symbol} ({target_metric}) ---"
-    )
     results_df = _process_results_to_dataframe(
         symbol_run_results, active_strategy, target_metric
     )
