@@ -17,7 +17,10 @@ from src import data_fetcher
 from src.optimizer_config import load_all_configs, get_backtest_settings
 from src.optimizer_params import build_param_grid, calculate_total_combinations
 from src.optimizer_results import process_and_save_results
-from src.excel_summary import save_summary_to_excel  # Import the new function
+from src.excel_summary import (
+    save_summary_to_excel,
+    generate_symbol_summary_excel,
+)  # Import both functions
 
 # Ensure multiprocessing start method is 'fork'
 # if mp.get_start_method(allow_none=False) != "fork":
@@ -170,6 +173,7 @@ if __name__ == "__main__":
 
     # --- Symbol Loop Start ---
     for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
+        symbol_results_for_excel = []  # Initialize list for this symbol's results
         # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
         results_dir = os.path.join(
             "strategies", active_strategy, symbol, "optimization_results"
@@ -261,9 +265,16 @@ if __name__ == "__main__":
             )
             if result_data:  # Append if results were successfully processed and saved
                 all_run_results.append(result_data)
+                symbol_results_for_excel.append(result_data)  # Also add to symbol list
             # Inner progress bar updates automatically
             # print(f"--- Finished Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
         # --- Mode Loop End ---
+
+        # --- Save Symbol-Specific Excel Summary ---
+        if symbol_results_for_excel:
+            generate_symbol_summary_excel(
+                symbol_results_for_excel, active_strategy, symbol, target_metric
+            )
 
         # print(f"--- Finished All Modes for Symbol: {symbol} ---") # Removed for quieter output
     # --- Symbol Loop End ---
