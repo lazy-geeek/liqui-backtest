@@ -8,26 +8,41 @@ from typing import Dict, Any
 from liqui_backtester import load_config
 
 
-def load_all_configs(config_file: str = "config.json") -> Dict[str, Any]:
-    """Load main config and active strategy config."""
-    config = load_config(config_file)
-
-    active_strategy = config.get("active_strategy")
-    if not active_strategy:
-        print("Error: 'active_strategy' not set in config.json")
+def load_config(config_path: str) -> Dict[str, Any]:
+    """Load a JSON configuration file."""
+    try:
+        with open(config_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Error: Config file not found at {config_path}")
+        sys.exit(1)
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from {config_path}")
         sys.exit(1)
 
-    strategy_config_path = os.path.join("strategies", active_strategy, "config.json")
+
+def load_all_configs(config_file: str = "config.json") -> Dict[str, Any]:
+    """Load main config and list of active strategies."""
+    config = load_config(config_file)
+
+    active_strategies = config.get("active_strategies")
+    if not active_strategies or not isinstance(active_strategies, list):
+        print("Error: 'active_strategies' not set or is not a list in config.json")
+        sys.exit(1)
+
+    return {
+        "main_config": config,
+        "active_strategies": active_strategies,
+    }
+
+
+def load_strategy_config(strategy_name: str) -> Dict[str, Any]:
+    """Load the configuration for a specific strategy."""
+    strategy_config_path = os.path.join("strategies", strategy_name, "config.json")
     if not os.path.exists(strategy_config_path):
         print(f"Error: Strategy config not found at {strategy_config_path}")
         sys.exit(1)
-
-    strategy_config = load_config(strategy_config_path)
-    return {
-        "main_config": config,
-        "strategy_config": strategy_config,
-        "active_strategy": active_strategy,
-    }
+    return load_config(strategy_config_path)
 
 
 def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -79,16 +94,34 @@ def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Ensure 'target_metrics' is a list
-    target_metrics_list = settings["target_metrics"]
+    target_metrics_list = config.get("optimization_settings", {}).get(
+        "target_metrics", ["Sharpe Ratio"]
+    )
     if not isinstance(target_metrics_list, list):
         print(
             f"Warning: 'target_metrics' in config is not a list. Using default: ['Sharpe Ratio']"
         )
-        settings["target_metrics"] = ["Sharpe Ratio"]
+        target_metrics_list = ["Sharpe Ratio"]
     elif not target_metrics_list:  # Handle empty list case
         print(
             f"Warning: 'target_metrics' list in config is empty. Using default: ['Sharpe Ratio']"
         )
-        settings["target_metrics"] = ["Sharpe Ratio"]
+        target_metrics_list = ["Sharpe Ratio"]
 
-    return settings
+    return {
+        "symbols": symbols_list,  # Use the validated list
+        "timeframe": backtest_settings.get("timeframe", "5m"),
+        "start_date": start_date,
+        "end_date": end_date,
+        "initial_cash": backtest_settings.get("initial_cash", 10000),
+        "commission_pct": backtest_settings.get("commission_percentage", 0.04),
+        "leverage": backtest_settings.get("leverage", 1),
+        "liquidation_aggregation_minutes": backtest_settings.get(
+            "liquidation_aggregation_minutes", 5
+        ),
+        "average_lookback_period_days": backtest_settings.get(
+            "average_lookback_period_days", 7
+        ),
+        "modus": backtest_settings.get("modus", "both"),
+        "target_metrics": target_metrics_list,
+    }

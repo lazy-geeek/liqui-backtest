@@ -164,31 +164,10 @@ def process_and_save_results(
             "target_metric": target_metric,  # Add target_metric
         }
 
-        with open(filename, "w") as f:
-            json.dump(combined_result, f, indent=4)
-        return combined_result  # Return the data after successful save
-
-        # Save heatmap if available
-        if heatmap is not None and not heatmap.empty:
-            base_filename = os.path.splitext(filename)[0]
-            heatmap_filepath = base_filename + ".csv"
-            # print(f"Saving optimization heatmap to {heatmap_filepath}...") # Removed for quieter output
-
-            heatmap_df = heatmap.reset_index()
-            metric_name = stats.index[
-                stats.index.str.contains(
-                    "Ratio|Return|Equity|Drawdown", case=False, regex=True
-                )
-            ].tolist()
-            metric_name = metric_name[0] if metric_name else "MetricValue"
-            heatmap_df.rename(
-                columns={heatmap_df.columns[-1]: metric_name}, inplace=True
-            )
-
-            heatmap_df.to_csv(heatmap_filepath, index=False)
-            # print("Heatmap saved successfully.") # Removed for quieter output
+        # Return the data for Excel summary, skip saving JSON/heatmap files
+        return combined_result
     else:
         print(
-            "Skipping saving best parameters JSON as they could not be extracted."
+            "Skipping processing results as best parameters could not be extracted."
         )  # Keep error message
-        return None  # Return None if saving is skipped
+        return None  # Return None if processing is skipped

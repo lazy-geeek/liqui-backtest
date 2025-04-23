@@ -1,5 +1,5 @@
 {
-    "active_strategy": "follow-the-flow",
+    "active_strategies": ["follow-the-flow", "counter-trade"],
     "backtest_settings": {
         "symbols": ["SOLUSDT", "FARTCOINUSDT"],
         "timeframe": "1m",

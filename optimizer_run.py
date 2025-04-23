@@ -14,13 +14,16 @@ import pandas as pd
 
 # Import our modules
 from src import data_fetcher
-from src.optimizer_config import load_all_configs, get_backtest_settings
+from src.optimizer_config import (
+    load_all_configs,
+    get_backtest_settings,
+    load_strategy_config,
+)
 from src.optimizer_params import build_param_grid, calculate_total_combinations
 from src.optimizer_results import process_and_save_results
 from src.excel_summary import (
-    save_summary_to_excel,
     generate_symbol_summary_excel,
-)  # Import both functions
+)  # Only import generate_symbol_summary_excel
 
 # Ensure multiprocessing start method is 'fork'
 # if mp.get_start_method(allow_none=False) != "fork":
@@ -107,8 +110,9 @@ if __name__ == "__main__":
     # 1. Load all configurations
     configs = load_all_configs("config.json")
     config = configs["main_config"]
-    strategy_config = configs["strategy_config"]
-    active_strategy = configs["active_strategy"]
+    active_strategies = configs[
+        "active_strategies"
+    ]  # Get the list of active strategies
 
     # 2. Get backtest settings
     backtest_settings = get_backtest_settings(config)
@@ -139,6 +143,9 @@ if __name__ == "__main__":
     # Print general optimization settings
     print(f"Optimization Targets: {', '.join(target_metrics_list)}")
     print(f"Symbols to process: {', '.join(symbols)}")
+    print(
+        f"Strategies to process: {', '.join(active_strategies)}"
+    )  # Print active strategies
     print(f"Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
@@ -148,40 +155,8 @@ if __name__ == "__main__":
     print(f"Modes to process: {', '.join(modus_list)}")  # Updated print statement
     print("-" * 30)
 
-    # 3. Dynamically import the strategy class (outside the loop as it's the same for all symbols)
-    strategy_module_path = f"src.strategies.{active_strategy}.strategy"
-    strategy_module = importlib.import_module(strategy_module_path)
-    # Find the strategy class (assume only one class ending with 'Strategy')
-    strategy_class = None
-    for attr in dir(strategy_module):
-        if attr.endswith("Strategy"):
-            strategy_class = getattr(strategy_module, attr)
-            break
-    if strategy_class is None:
-        print(f"Error: No strategy class found in {strategy_module_path}")
-        exit(1)
-
-    # 6. Build parameter grid and calculate combinations (once before the loop)
-    param_grid = build_param_grid(strategy_config)
-    total_combinations = calculate_total_combinations(param_grid)
-    print(f"Total possible parameter combinations: {total_combinations}")
-    # Ask once before starting all symbols
-    # input("Press Enter to start optimization for all symbols...") # Removed for non-interactive run
-    # print("-" * 30) # Removed for non-interactive run
-
-    all_run_results = []  # Initialize list to collect results
-
     # --- Symbol Loop Start ---
     for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
-        symbol_results_for_excel = []  # Initialize list for this symbol's results
-        # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
-        results_dir = os.path.join(
-            "strategies", active_strategy, symbol, "optimization_results"
-        )
-        if os.path.exists(results_dir):
-            shutil.rmtree(results_dir)
-        os.makedirs(results_dir, exist_ok=True)
-
         # 4. Fetch and prepare data for the current symbol (once per symbol)
         # print("Preparing data...") # Removed for quieter output
         data = data_fetcher.prepare_data(
@@ -226,84 +201,124 @@ if __name__ == "__main__":
         # print(f"Data prepared for {symbol}. Shape: {data.shape}") # Removed for quieter output
         # print("-" * 30) # Removed for quieter output
 
-        # --- Target Metric Loop Start ---
-        for target_metric in tqdm(
-            target_metrics_list, desc=f"Metrics ({symbol})", position=1, leave=False
+        # --- Strategy Loop Start ---
+        for current_strategy_name in tqdm(
+            active_strategies, desc=f"Strategies ({symbol})", position=1, leave=False
         ):
-            # print(f"\n--- Starting Target Metric: {target_metric} for Symbol: {symbol} ---") # Removed for quieter output
+            # Load strategy config for the current strategy
+            strategy_config = load_strategy_config(current_strategy_name)
 
-            # --- Mode Loop Start ---
-            for mode in tqdm(
-                modus_list,
-                desc=f"Modes ({symbol}, {target_metric})",
+            # Dynamically import the strategy class
+            strategy_module_path = f"src.strategies.{current_strategy_name}.strategy"
+            try:
+                strategy_module = importlib.import_module(strategy_module_path)
+            except ModuleNotFoundError:
+                print(
+                    f"Error: Strategy module not found at {strategy_module_path}. Skipping strategy {current_strategy_name} for symbol {symbol}."
+                )
+                continue  # Skip to the next strategy
+
+            # Find the strategy class (assume only one class ending with 'Strategy')
+            strategy_class = None
+            for attr in dir(strategy_module):
+                if attr.endswith("Strategy"):
+                    strategy_class = getattr(strategy_module, attr)
+                    break
+            if strategy_class is None:
+                print(
+                    f"Error: No strategy class found in {strategy_module_path}. Skipping strategy {current_strategy_name} for symbol {symbol}."
+                )
+                continue  # Skip to the next strategy
+
+            # Build parameter grid and calculate combinations for the current strategy
+            # Removed printing block for parameter grid details
+            param_grid = build_param_grid(strategy_config)
+            total_combinations = calculate_total_combinations(param_grid)
+            # Removed print statement for total combinations per strategy to avoid interrupting progress bars
+            # print(
+            #     f"\nStrategy: {current_strategy_name}, Total possible parameter combinations: {total_combinations}"
+            # )
+
+            # Initialize list for this symbol and strategy's results
+            symbol_strategy_results_for_excel = []
+
+            # --- Target Metric Loop Start ---
+            for target_metric in tqdm(
+                target_metrics_list,
+                desc=f"Metrics ({symbol}, {current_strategy_name})",
                 position=2,
                 leave=False,
             ):
-                # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol}, Metric: {target_metric} ---") # Removed for quieter output
+                # print(f"\n--- Starting Target Metric: {target_metric} for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
 
-                # 5. Initialize Backtest Object for the current symbol and mode
-                # Note: We assume the strategy itself handles the 'mode' internally,
-                # potentially by reading config or through optimized parameters.
-                # If the strategy needs the mode explicitly, this initialization might need adjustment.
-                bt = Backtest(
-                    data,
-                    strategy_class,
-                    cash=initial_cash,
-                    commission=commission_decimal,
-                    margin=margin,
+                # --- Mode Loop Start ---
+                for mode in tqdm(
+                    modus_list,
+                    desc=f"Modes ({symbol}, {current_strategy_name}, {target_metric})",
+                    position=3,
+                    leave=False,
+                ):
+                    # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol}, Strategy: {current_strategy_name}, Metric: {target_metric} ---") # Removed for quieter output
+
+                    # 5. Initialize Backtest Object for the current symbol, strategy, and mode
+                    bt = Backtest(
+                        data,
+                        strategy_class,  # Use the strategy class for the current strategy
+                        cash=initial_cash,
+                        commission=commission_decimal,
+                        margin=margin,
+                    )
+
+                    # Create a mode-specific parameter grid
+                    mode_specific_param_grid = param_grid.copy()
+                    mode_specific_param_grid["modus"] = (
+                        mode  # Set the modus for this run
+                    )
+
+                    # 7. Run optimization for the current symbol, strategy, and mode using the specific grid
+                    stats, heatmap = run_optimization(
+                        bt, mode_specific_param_grid, target_metric
+                    )
+
+                    # 8. Process results and collect data for the current symbol, strategy, and mode
+                    result_data = process_and_save_results(  # Capture return value
+                        stats=stats,
+                        heatmap=heatmap,
+                        param_grid=param_grid,  # Note: param_grid is the full grid for the current strategy
+                        config=config,
+                        active_strategy=current_strategy_name,  # Pass the current strategy name
+                        symbol=symbol,  # Pass the current symbol
+                        mode=mode,  # Pass the current mode
+                        target_metric=target_metric,  # Pass the current target metric
+                    )
+                    if result_data:  # Append if results were successfully processed
+                        symbol_strategy_results_for_excel.append(result_data)
+
+                    # Inner progress bar updates automatically
+                    # print(f"--- Finished Mode: {mode} for Symbol: {symbol}, Strategy: {current_strategy_name}, Metric: {target_metric} ---") # Removed for quieter output
+                # --- Mode Loop End ---
+                # print(f"--- Finished Target Metric: {target_metric} for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
+            # --- Target Metric Loop End ---
+
+            # --- Save Symbol and Strategy Specific Excel Summary ---
+            if symbol_strategy_results_for_excel:
+                generate_symbol_summary_excel(
+                    symbol_strategy_results_for_excel,
+                    current_strategy_name,
+                    symbol,
+                    target_metric,  # Pass current strategy name and symbol
                 )
 
-                # 6. Parameter grid is built once outside the loop
+            # print(f"--- Finished All Modes for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
+        # --- Strategy Loop End ---
 
-                # Create a mode-specific parameter grid
-                mode_specific_param_grid = param_grid.copy()
-                mode_specific_param_grid["modus"] = mode  # Set the modus for this run
-
-                # 7. Run optimization for the current symbol and mode using the specific grid
-                stats, heatmap = run_optimization(
-                    bt, mode_specific_param_grid, target_metric
-                )
-
-                # 8. Process and save results for the current symbol and mode, and collect data
-                result_data = process_and_save_results(  # Capture return value
-                    stats=stats,
-                    heatmap=heatmap,
-                    param_grid=param_grid,  # Note: param_grid is the full grid, not mode-specific
-                    config=config,
-                    active_strategy=active_strategy,
-                    symbol=symbol,  # Pass the current symbol
-                    mode=mode,  # Pass the current mode
-                    target_metric=target_metric,  # Pass the current target metric
-                )
-                if (
-                    result_data
-                ):  # Append if results were successfully processed and saved
-                    all_run_results.append(result_data)
-                    symbol_results_for_excel.append(
-                        result_data
-                    )  # Also add to symbol list
-                # Inner progress bar updates automatically
-                # print(f"--- Finished Mode: {mode} for Symbol: {symbol}, Metric: {target_metric} ---") # Removed for quieter output
-            # --- Mode Loop End ---
-            # print(f"--- Finished Target Metric: {target_metric} for Symbol: {symbol} ---") # Removed for quieter output
-        # --- Target Metric Loop End ---
-
-        # --- Save Symbol-Specific Excel Summary ---
-        if symbol_results_for_excel:
-            # Pass the list of results for this symbol, not just the last one
-            # Pass the current target_metric for the filename
-            generate_symbol_summary_excel(
-                symbol_results_for_excel, active_strategy, symbol, target_metric
-            )
-
-        # print(f"--- Finished All Modes for Symbol: {symbol} ---") # Removed for quieter output
+        # print(f"--- Finished All Strategies for Symbol: {symbol} ---") # Removed for quieter output
     # --- Symbol Loop End ---
 
     # No need to close tqdm iterators explicitly
 
-    # --- Save Consolidated Excel Summary ---
-    # Pass the list of all results
-    save_summary_to_excel(all_run_results, active_strategy, target_metrics_list)
+    # --- Removed Consolidated Excel Summary ---
+    # save_summary_to_excel(all_run_results, active_strategy, target_metrics_list) # Removed
 
     total_script_time = time.time() - start_time
     total_script_time_minutes = total_script_time / 60
