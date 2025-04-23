@@ -36,9 +36,9 @@ def process_and_save_results(
     active_strategy: str,
     symbol: str,
     mode: str,  # Add mode parameter
-) -> None:
+) -> Optional[Dict[str, Any]]:
     """
-    Process optimization results and save to files.
+    Process optimization results and save to files. Returns the processed data on success.
 
     Args:
         stats: Optimization statistics
@@ -51,7 +51,7 @@ def process_and_save_results(
     """
     if stats is None:
         print(f"No results to process for {symbol} ({mode}) - optimization failed")
-        return
+        return None
 
     # print("\nBest Parameters Found:") # Removed for quieter output
     best_params = stats["_strategy"]
@@ -155,6 +155,7 @@ def process_and_save_results(
         with open(filename, "w") as f:
             json.dump(combined_result, f, indent=4)
         # print(f"Optimization results saved to {filename}") # Removed for quieter output
+        return combined_result  # Return the data after successful save
 
         # Save heatmap if available
         if heatmap is not None and not heatmap.empty:
@@ -179,3 +180,4 @@ def process_and_save_results(
         print(
             "Skipping saving best parameters JSON as they could not be extracted."
         )  # Keep error message
+        return None  # Return None if saving is skipped

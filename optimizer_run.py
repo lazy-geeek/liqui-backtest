@@ -17,6 +17,7 @@ from src import data_fetcher
 from src.optimizer_config import load_all_configs, get_backtest_settings
 from src.optimizer_params import build_param_grid, calculate_total_combinations
 from src.optimizer_results import process_and_save_results
+from src.excel_summary import save_summary_to_excel  # Import the new function
 
 # Ensure multiprocessing start method is 'fork'
 # if mp.get_start_method(allow_none=False) != "fork":
@@ -165,6 +166,8 @@ if __name__ == "__main__":
     # input("Press Enter to start optimization for all symbols...") # Removed for non-interactive run
     # print("-" * 30) # Removed for non-interactive run
 
+    all_run_results = []  # Initialize list to collect results
+
     # --- Symbol Loop Start ---
     for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
         # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
@@ -246,16 +249,18 @@ if __name__ == "__main__":
                 bt, mode_specific_param_grid, target_metric
             )
 
-            # 8. Process and save results for the current symbol and mode
-            process_and_save_results(
+            # 8. Process and save results for the current symbol and mode, and collect data
+            result_data = process_and_save_results(  # Capture return value
                 stats=stats,
                 heatmap=heatmap,
-                param_grid=param_grid,
+                param_grid=param_grid,  # Note: param_grid is the full grid, not mode-specific
                 config=config,
                 active_strategy=active_strategy,
                 symbol=symbol,  # Pass the current symbol
                 mode=mode,  # Pass the current mode
             )
+            if result_data:  # Append if results were successfully processed and saved
+                all_run_results.append(result_data)
             # Inner progress bar updates automatically
             # print(f"--- Finished Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
         # --- Mode Loop End ---
@@ -264,6 +269,10 @@ if __name__ == "__main__":
     # --- Symbol Loop End ---
 
     # No need to close tqdm iterators explicitly
+
+    # --- Save Consolidated Excel Summary ---
+    save_summary_to_excel(all_run_results, active_strategy, target_metric)
+
     total_script_time = time.time() - start_time
     print(f"\n--- All Optimizations Finished ---")
     print(f"Total script execution time: {total_script_time:.2f} seconds")

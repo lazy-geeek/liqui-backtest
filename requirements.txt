@@ -8,3 +8,4 @@ plotly
 termcolor
 tqdm
 python-dotenv
+openpyxl

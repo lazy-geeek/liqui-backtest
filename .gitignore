@@ -188,3 +188,4 @@ optimization_best_params.json
 .roo/
 .clinerules/
 .clineignore
+*.xlsx
