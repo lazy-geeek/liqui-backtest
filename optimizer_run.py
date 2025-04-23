@@ -5,7 +5,6 @@ import time
 import importlib
 from tqdm import tqdm
 
-# import multiprocessing as mp
 from typing import Dict, Tuple, Optional, Any
 from backtesting import Backtest
 import os
@@ -25,9 +24,6 @@ from src.excel_summary import (
     generate_symbol_summary_excel,
 )  # Only import generate_symbol_summary_excel
 
-# Ensure multiprocessing start method is 'fork'
-# if mp.get_start_method(allow_none=False) != "fork":
-#    mp.set_start_method("fork")
 
 # Suppress specific warnings (optional, but can clean up output)
 warnings.filterwarnings(
@@ -67,7 +63,6 @@ def run_optimization(
     Returns:
         Tuple of (stats, heatmap) or (None, None) if optimization failed
     """
-    # print("Running optimization (this may take a long time)...") # Removed for quieter output
     start_time = time.time()
 
     try:
@@ -94,12 +89,8 @@ def run_optimization(
 
     if optimization_successful:
         total_time = time.time() - start_time
-        # print(f"\n--- Optimization Complete ---") # Removed for quieter output
-        # print(f"Total optimization time: {total_time:.2f} seconds") # Removed for quieter output
-        # print("-" * 30) # Removed for quieter output
         return stats, heatmap
     else:
-        # print("-" * 30) # Removed for quieter output (kept for error case clarity if needed)
         return None, None
 
 
@@ -158,7 +149,6 @@ if __name__ == "__main__":
     # --- Symbol Loop Start ---
     for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
         # 4. Fetch and prepare data for the current symbol (once per symbol)
-        # print("Preparing data...") # Removed for quieter output
         data = data_fetcher.prepare_data(
             symbol,  # Use the current symbol from the loop
             timeframe,
@@ -198,9 +188,6 @@ if __name__ == "__main__":
             # No progress bar update needed here for outer loop
             continue  # Skip to the next symbol
 
-        # print(f"Data prepared for {symbol}. Shape: {data.shape}") # Removed for quieter output
-        # print("-" * 30) # Removed for quieter output
-
         # --- Strategy Loop Start ---
         for current_strategy_name in tqdm(
             active_strategies, desc=f"Strategies ({symbol})", position=1, leave=False
@@ -231,13 +218,8 @@ if __name__ == "__main__":
                 continue  # Skip to the next strategy
 
             # Build parameter grid and calculate combinations for the current strategy
-            # Removed printing block for parameter grid details
             param_grid = build_param_grid(strategy_config)
             total_combinations = calculate_total_combinations(param_grid)
-            # Removed print statement for total combinations per strategy to avoid interrupting progress bars
-            # print(
-            #     f"\nStrategy: {current_strategy_name}, Total possible parameter combinations: {total_combinations}"
-            # )
 
             # Initialize list for this symbol and strategy's results
             symbol_strategy_results_for_excel = []
@@ -249,7 +231,6 @@ if __name__ == "__main__":
                 position=2,
                 leave=False,
             ):
-                # print(f"\n--- Starting Target Metric: {target_metric} for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
 
                 # --- Mode Loop Start ---
                 for mode in tqdm(
@@ -258,7 +239,6 @@ if __name__ == "__main__":
                     position=3,
                     leave=False,
                 ):
-                    # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol}, Strategy: {current_strategy_name}, Metric: {target_metric} ---") # Removed for quieter output
 
                     # 5. Initialize Backtest Object for the current symbol, strategy, and mode
                     bt = Backtest(
@@ -295,10 +275,8 @@ if __name__ == "__main__":
                         symbol_strategy_results_for_excel.append(result_data)
 
                     # Inner progress bar updates automatically
-                    # print(f"--- Finished Mode: {mode} for Symbol: {symbol}, Strategy: {current_strategy_name}, Metric: {target_metric} ---") # Removed for quieter output
-                # --- Mode Loop End ---
-                # print(f"--- Finished Target Metric: {target_metric} for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
-            # --- Target Metric Loop End ---
+                    # --- Mode Loop End ---
+                    # --- Target Metric Loop End ---
 
             # --- Save Symbol and Strategy Specific Excel Summary ---
             if symbol_strategy_results_for_excel:
@@ -309,16 +287,11 @@ if __name__ == "__main__":
                     target_metric,  # Pass current strategy name and symbol
                 )
 
-            # print(f"--- Finished All Modes for Symbol: {symbol}, Strategy: {current_strategy_name} ---") # Removed for quieter output
-        # --- Strategy Loop End ---
+                # --- Strategy Loop End ---
 
-        # print(f"--- Finished All Strategies for Symbol: {symbol} ---") # Removed for quieter output
-    # --- Symbol Loop End ---
+            # --- Symbol Loop End ---
 
     # No need to close tqdm iterators explicitly
-
-    # --- Removed Consolidated Excel Summary ---
-    # save_summary_to_excel(all_run_results, active_strategy, target_metrics_list) # Removed
 
     total_script_time = time.time() - start_time
     total_script_time_minutes = total_script_time / 60

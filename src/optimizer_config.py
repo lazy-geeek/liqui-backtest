@@ -92,36 +92,3 @@ def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
             "target_metrics", ["Sharpe Ratio"]
         ),
     }
-
-    # Ensure 'target_metrics' is a list
-    target_metrics_list = config.get("optimization_settings", {}).get(
-        "target_metrics", ["Sharpe Ratio"]
-    )
-    if not isinstance(target_metrics_list, list):
-        print(
-            f"Warning: 'target_metrics' in config is not a list. Using default: ['Sharpe Ratio']"
-        )
-        target_metrics_list = ["Sharpe Ratio"]
-    elif not target_metrics_list:  # Handle empty list case
-        print(
-            f"Warning: 'target_metrics' list in config is empty. Using default: ['Sharpe Ratio']"
-        )
-        target_metrics_list = ["Sharpe Ratio"]
-
-    return {
-        "symbols": symbols_list,  # Use the validated list
-        "timeframe": backtest_settings.get("timeframe", "5m"),
-        "start_date": start_date,
-        "end_date": end_date,
-        "initial_cash": backtest_settings.get("initial_cash", 10000),
-        "commission_pct": backtest_settings.get("commission_percentage", 0.04),
-        "leverage": backtest_settings.get("leverage", 1),
-        "liquidation_aggregation_minutes": backtest_settings.get(
-            "liquidation_aggregation_minutes", 5
-        ),
-        "average_lookback_period_days": backtest_settings.get(
-            "average_lookback_period_days", 7
-        ),
-        "modus": backtest_settings.get("modus", "both"),
-        "target_metrics": target_metrics_list,
-    }

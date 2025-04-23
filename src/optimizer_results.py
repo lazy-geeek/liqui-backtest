@@ -64,7 +64,6 @@ def process_and_save_results(
         print(f"No results to process for {symbol} ({mode}) - optimization failed")
         return None
 
-    # print("\nBest Parameters Found:") # Removed for quieter output
     best_params = stats["_strategy"]
     best_params_dict = {}
 
@@ -77,28 +76,19 @@ def process_and_save_results(
             and attr in param_grid
         }
 
-        # Convert numpy values to native Python types
         for k, v in list(best_params_dict.items()):
             if isinstance(v, (np.generic, np.ndarray)):
                 best_params_dict[k] = v.item()
 
-        # Add non-optimized params
         best_params_dict["slippage_percentage_per_side"] = param_grid[
             "slippage_percentage_per_side"
         ]
         best_params_dict["position_size_fraction"] = param_grid[
             "position_size_fraction"
         ]
-        # print(json.dumps(best_params_dict, indent=4)) # Removed for quieter output
     else:
-        print(
-            "Could not extract best parameters from strategy object."
-        )  # Keep error message
+        print("Could not extract best parameters from strategy object.")
 
-    # print("\nBest Performance Stats:") # Removed for quieter output
-    # print(stats.drop("_strategy", errors="ignore")) # Removed for quieter output
-
-    # Save best parameters to JSON
     if best_params_dict:
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = os.path.join(
@@ -107,10 +97,9 @@ def process_and_save_results(
         os.makedirs(output_dir, exist_ok=True)
         filename = os.path.join(
             output_dir,
-            f"optimization_result_{symbol}_{mode}_{target_metric.replace(' ', '_')}_{timestamp_str}.json",  # Add mode and target_metric to filename
+            f"optimization_result_{symbol}_{mode}_{target_metric.replace(' ', '_')}_{timestamp_str}.json",
         )
 
-        # Prepare key metrics to save
         key_metrics = [
             "Start",
             "End",
@@ -156,18 +145,15 @@ def process_and_save_results(
                     concise_stats[key] = val
 
         combined_result = {
-            "symbol": symbol,  # Add symbol
-            "mode": mode,  # Add mode
+            "symbol": symbol,
+            "mode": mode,
             "best_params": best_params_dict,
-            "config": config,  # Keep original config for reference
+            "config": config,
             "optimization_stats": clean_for_json(concise_stats),
-            "target_metric": target_metric,  # Add target_metric
+            "target_metric": target_metric,
         }
 
-        # Return the data for Excel summary, skip saving JSON/heatmap files
         return combined_result
     else:
-        print(
-            "Skipping processing results as best parameters could not be extracted."
-        )  # Keep error message
-        return None  # Return None if processing is skipped
+        print("Skipping processing results as best parameters could not be extracted.")
+        return None

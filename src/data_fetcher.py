@@ -24,10 +24,8 @@ if not raw_url:
 try:
     # Decode potential unicode escape sequences
     LIQUIDATION_API_BASE_URL = codecs.decode(raw_url, "unicode-escape")
-    # print(f"Decoded Liquidation API URL: {LIQUIDATION_API_BASE_URL}") # Removed debug print
 except Exception as e:
     print(f"Error decoding LIQUIDATION_API_BASE_URL: {e}")
-    # print(f"Using raw URL: {raw_url}") # Removed debug print
     LIQUIDATION_API_BASE_URL = raw_url  # Fallback to raw URL if decoding fails
 
 
@@ -58,21 +56,16 @@ def fetch_ohlcv(
     # Check cache first
     if cache_file.exists():
         try:
-            # print(f"Cache hit: Loading OHLCV data from {cache_file}") # Removed for quieter output
             df = pd.read_parquet(cache_file)
             # Ensure index is datetime after loading from parquet
             if not pd.api.types.is_datetime64_any_dtype(df.index):
                 df.index = pd.to_datetime(df.index, utc=True)
             # Filter exact date range again after loading from cache
             df = df[(df.index >= start_dt) & (df.index < end_dt)]
-            # print(f"Loaded {len(df)} OHLCV candles from cache.") # Removed for quieter output
             return df
         except Exception as e:
             print(f"Error reading cache file {cache_file}: {e}. Fetching from API.")
 
-    # print( # Removed for quieter output
-    #     f"Cache miss: Fetching OHLCV data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
-    # )
     exchange = ccxt.binance()  # Using Binance public API
     start_ms = int(start_dt.timestamp() * 1000)
     end_ms = int(end_dt.timestamp() * 1000)
@@ -121,11 +114,9 @@ def fetch_ohlcv(
     df = df.set_index("Timestamp")
     # Filter exact date range (fetch_ohlcv 'since' might include earlier data point)
     df = df[(df.index >= start_dt) & (df.index < end_dt)]
-    # print(f"Fetched {len(df)} OHLCV candles from API.") # Removed for quieter output
     # Save to cache
     try:
         df.to_parquet(cache_file)
-        # print(f"Saved OHLCV data to cache: {cache_file}") # Removed for quieter output
     except Exception as e:
         print(f"Error saving OHLCV data to cache file {cache_file}: {e}")
     return df
@@ -161,7 +152,6 @@ def fetch_liquidations(
     # Check cache first
     if cache_file.exists():
         try:
-            # print(f"Cache hit: Loading liquidation data from {cache_file}") # Removed for quieter output
             df = pd.read_parquet(cache_file)
             # Ensure timestamp column is datetime after loading from parquet
             if "timestamp" in df.columns and not pd.api.types.is_datetime64_any_dtype(
@@ -170,14 +160,10 @@ def fetch_liquidations(
                 df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
             # Filter exact date range again after loading from cache
             df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] < end_dt)]
-            # print(f"Loaded {len(df)} liquidation records from cache.") # Removed for quieter output
             return df
         except Exception as e:
             print(f"Error reading cache file {cache_file}: {e}. Fetching from API.")
 
-    # print( # Removed for quieter output
-    #     f"Cache miss: Fetching liquidation data for {symbol} ({timeframe}) from {start_dt} to {end_dt}..."
-    # )
     start_ts_ms = int(start_dt.timestamp() * 1000)
     end_ts_ms = int(end_dt.timestamp() * 1000)
 
@@ -199,7 +185,6 @@ def fetch_liquidations(
         df = pd.DataFrame(data)
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         # Ensure timestamp_iso is also parsed if needed later, though we primarily use 'timestamp'
-        # print(f"Fetched {len(df)} liquidation records from API.") # Removed for quieter output
         # Save to cache
         try:
             # Drop timestamp_iso if it exists and causes issues with parquet
@@ -208,7 +193,6 @@ def fetch_liquidations(
             else:
                 df_to_save = df
             df_to_save.to_parquet(cache_file)
-            # print(f"Saved liquidation data to cache: {cache_file}") # Removed for quieter output
         except Exception as e:
             print(f"Error saving liquidation data to cache file {cache_file}: {e}")
         return df
@@ -329,5 +313,4 @@ def prepare_data(
     # Replace any remaining NaNs in the final DataFrame with zeros
     merged_df = merged_df.fillna(0)
 
-    # print("Data preparation complete.") # Removed for quieter output
     return merged_df

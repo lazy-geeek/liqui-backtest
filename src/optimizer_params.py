@@ -14,12 +14,10 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
         print("Error: 'optimization_ranges' section not found in config.json")
         sys.exit(1)
 
-    # Removed: print("Building Optimization Parameter Grid from config...")
     for param_name, settings in optimization_ranges.items():
         if "values" in settings:
             # Direct list of values (e.g., for booleans)
             param_grid[param_name] = settings["values"]
-            # Removed: print(f"  {param_name}: Using values {settings['values']}")
         elif "start" in settings and "end" in settings and "step" in settings:
             # Range defined by start, end, step
             start, end, step = settings["start"], settings["end"], settings["step"]
@@ -37,7 +35,6 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
                 # Use Python's range for integers
                 # Add step to end because range's stop is exclusive
                 param_grid[param_name] = range(start, end + step, step)
-                # Removed: print(f"  {param_name}: Using range(start={start}, stop={end + step}, step={step})")
             else:
                 # Use list comprehension for floats to ensure hashable types
                 decimals = 0
@@ -60,10 +57,8 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
                     current += step
 
                 param_grid[param_name] = values
-                # Removed: print(f"  {param_name}: Using generated list (start={start}, stop={end}, step={step}) -> {len(values)} values")
         else:
-            # Removed: print(f"Warning: Invalid configuration for parameter '{param_name}' in optimization_ranges. Skipping.")
-            pass  # Keep else structure
+            pass
 
     # Add non-optimized parameters from other config sections
     strategy_defaults = config.get("strategy_parameters", {})
@@ -75,8 +70,6 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
     param_grid["position_size_fraction"] = strategy_defaults.get(
         "position_size_fraction", 0.01
     )
-    # Removed: print(f"  slippage_percentage_per_side: {param_grid['slippage_percentage_per_side']} (fixed)")
-    # Removed: print(f"  position_size_fraction: {param_grid['position_size_fraction']} (fixed)")
 
     # Adjust param_grid based on modus
     modus = config.get("backtest_settings", {}).get("modus", "both")
@@ -102,11 +95,9 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
     if modus == "both" and optimize_exit_flag:
         # Optimize over both True and False
         param_grid["exit_on_opposite_signal"] = [False, True]
-        # Removed: print("  exit_on_opposite_signal: optimizing over [False, True] (modus=both)")
     else:
         # Use fixed value
         param_grid["exit_on_opposite_signal"] = fixed_exit_value
-        # Removed: print(f"  exit_on_opposite_signal: fixed at {fixed_exit_value} (optimization disabled or modus != both)")
 
     return param_grid
 
