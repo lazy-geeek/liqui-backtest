@@ -64,7 +64,9 @@ def _process_results_to_dataframe(
             "strategy_name": config_data.get("active_strategy", active_strategy),
             "symbol": run_result.get("symbol"),
             "mode": run_result.get("mode"),
-            "target_metric": optimization_settings.get("target_metric", target_metric),
+            "target_metric": run_result.get(
+                "target_metric", target_metric
+            ),  # Get target_metric from run_result
         }
 
         # Extract best params
@@ -113,7 +115,7 @@ def generate_symbol_summary_excel(
     symbol_run_results: List[Dict[str, Any]],
     active_strategy: str,
     symbol: str,
-    target_metric: str,
+    target_metric: str,  # Changed back to single metric
 ) -> None:
     """
     Processes results for a single symbol and saves them to an Excel file
@@ -123,13 +125,15 @@ def generate_symbol_summary_excel(
         symbol_run_results: List of result dictionaries for the specific symbol.
         active_strategy: The name of the strategy being run.
         symbol: The specific symbol these results belong to.
-        target_metric: The optimization target metric name.
+        target_metric: The metric used for optimization for this run.
     """
     if not symbol_run_results:
         print(f"\nNo results for symbol {symbol} to save to Excel.")
         return
 
-    print(f"\n--- Saving Optimization Summary for Symbol: {symbol} ---")
+    print(
+        f"\n--- Saving Optimization Summary for Symbol: {symbol} ({target_metric}) ---"
+    )
     results_df = _process_results_to_dataframe(
         symbol_run_results, active_strategy, target_metric
     )
@@ -140,14 +144,17 @@ def generate_symbol_summary_excel(
         "strategies", active_strategy, symbol, "optimization_results"
     )
     excel_filename = os.path.join(
-        output_dir, f"optimization_summary_{symbol}_{timestamp_str}.xlsx"
+        output_dir,
+        f"optimization_summary_{symbol}_{target_metric.replace(' ', '_')}_{timestamp_str}.xlsx",  # Include target_metric in filename
     )
 
     _save_dataframe_to_excel(results_df, excel_filename)
 
 
 def save_summary_to_excel(
-    all_run_results: List[Dict[str, Any]], active_strategy: str, target_metric: str
+    all_run_results: List[Dict[str, Any]],
+    active_strategy: str,
+    target_metrics_list: List[str],  # Changed to list of metrics
 ) -> None:
     """
     Processes collected optimization results from ALL symbols and saves them
@@ -156,66 +163,21 @@ def save_summary_to_excel(
     Args:
         all_run_results: A list of dictionaries containing results from all symbols.
         active_strategy: The name of the strategy being run.
-        target_metric: The optimization target metric name.
+        target_metrics_list: The list of target metrics used for optimization.
     """
     if not all_run_results:
         print("\nNo consolidated results to save to Excel.")
         return
 
     print("\n--- Consolidating and Saving Final Optimization Summary ---")
+    # _process_results_to_dataframe already handles extracting the individual target_metric from each run_result
     results_df = _process_results_to_dataframe(
-        all_run_results, active_strategy, target_metric
+        all_run_results,
+        active_strategy,
+        (
+            target_metrics_list[0] if target_metrics_list else "Sharpe Ratio"
+        ),  # Pass the first metric as a fallback for the function signature, though it's not strictly used for data processing here
     )
-    requested_best_params = [
-        "average_liquidation_multiplier",
-        "exit_on_opposite_signal",
-        "stop_loss_percentage",
-        "take_profit_percentage",
-    ]
-    requested_stats = [
-        "Equity Final [$]",
-        "Commissions [$]",
-        "Return [%]",
-        "Return (Ann.) [%]",
-        "Max. Drawdown [%]",
-        "Max. Drawdown Duration",
-        "# Trades",
-        "Win Rate [%]",
-        "Sharpe Ratio",
-        "Sortino Ratio",
-        "Calmar Ratio",
-        "SQN",
-        "Kelly Criterion",
-        "Profit Factor",
-    ]
-
-    for run_result in all_run_results:
-        # Use .get() extensively for safety, in case keys are missing in some results
-        config_data = run_result.get("config", {})
-        best_params = run_result.get("best_params", {})
-        opt_stats = run_result.get("optimization_stats", {})
-        optimization_settings = config_data.get("optimization_settings", {})
-
-        flat_data = {
-            "strategy_name": config_data.get(
-                "active_strategy", active_strategy
-            ),  # Use active_strategy as fallback
-            "symbol": run_result.get("symbol"),
-            "mode": run_result.get("mode"),
-            "target_metric": optimization_settings.get(
-                "target_metric", target_metric
-            ),  # Use target_metric as fallback
-        }
-
-        # Extract best params
-        for param in requested_best_params:
-            flat_data[param] = best_params.get(param)
-
-        # Extract stats
-        for stat in requested_stats:
-            flat_data[stat] = opt_stats.get(stat)
-
-        summary_data_for_excel.append(flat_data)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     # Save in the main strategy directory

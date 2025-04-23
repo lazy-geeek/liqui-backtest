@@ -35,10 +35,21 @@ def process_and_save_results(
     config: Dict[str, Any],
     active_strategy: str,
     symbol: str,
-    mode: str,  # Add mode parameter
+    mode: str,
+    target_metric: str,  # Add target_metric parameter
 ) -> Optional[Dict[str, Any]]:
     """
     Process optimization results and save to files. Returns the processed data on success.
+
+    Args:
+        stats: Optimization statistics
+        heatmap: Optimization heatmap data
+        param_grid: Parameter grid used for optimization
+        config: Configuration dictionary
+        active_strategy: Name of active strategy
+        symbol: Trading symbol
+        mode: Trading mode ('buy', 'sell', 'both')
+        target_metric: Metric used for optimization
 
     Args:
         stats: Optimization statistics
@@ -96,7 +107,7 @@ def process_and_save_results(
         os.makedirs(output_dir, exist_ok=True)
         filename = os.path.join(
             output_dir,
-            f"optimization_result_{symbol}_{mode}_{timestamp_str}.json",  # Add mode to filename
+            f"optimization_result_{symbol}_{mode}_{target_metric.replace(' ', '_')}_{timestamp_str}.json",  # Add mode and target_metric to filename
         )
 
         # Prepare key metrics to save
@@ -150,6 +161,7 @@ def process_and_save_results(
             "best_params": best_params_dict,
             "config": config,  # Keep original config for reference
             "optimization_stats": clean_for_json(concise_stats),
+            "target_metric": target_metric,  # Add target_metric
         }
 
         with open(filename, "w") as f:

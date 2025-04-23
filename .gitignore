@@ -189,3 +189,4 @@ optimization_best_params.json
 .clinerules/
 .clineignore
 *.xlsx
+config copy.json

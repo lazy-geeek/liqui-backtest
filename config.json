@@ -1,18 +1,12 @@
 {
     "active_strategy": "follow-the-flow",
     "backtest_settings": {
-        "symbols": [
-            "ETHUSDT",
-            "SOLUSDT",
-            "SUIUSDT",
-            "FARTCOINUSDT",
-            "MAGICUSDT"
-        ],
+        "symbols": ["SOLUSDT", "FARTCOINUSDT"],
         "timeframe": "1m",
         "start_date_iso": "2025-01-01T00:00:00Z",
-        "end_date_iso": "2025-03-22T00:00:00Z",
+        "end_date_iso": "2025-01-15T00:00:00Z",
         "initial_cash": 100000,
-        "commission_percentage": 0.04,
+        "commission_percentage": 0.045,
         "liquidation_aggregation_minutes": 5,
         "leverage": 10,
         "modus": ["buy", "sell", "both"],
@@ -23,6 +17,6 @@
     },
     "optimization_settings": {
         "optimize_exit_signal_if_modus_both": false,
-        "target_metric": "Sharpe Ratio"
+        "target_metrics": ["Sharpe Ratio", "Sortino Ratio"]
     }
 }

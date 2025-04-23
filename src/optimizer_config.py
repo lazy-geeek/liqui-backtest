@@ -73,7 +73,22 @@ def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
             "average_lookback_period_days", 7
         ),
         "modus": backtest_settings.get("modus", "both"),
-        "target_metric": config.get("optimization_settings", {}).get(
-            "target_metric", "Sharpe Ratio"
+        "target_metrics": config.get("optimization_settings", {}).get(
+            "target_metrics", ["Sharpe Ratio"]
         ),
     }
+
+    # Ensure 'target_metrics' is a list
+    target_metrics_list = settings["target_metrics"]
+    if not isinstance(target_metrics_list, list):
+        print(
+            f"Warning: 'target_metrics' in config is not a list. Using default: ['Sharpe Ratio']"
+        )
+        settings["target_metrics"] = ["Sharpe Ratio"]
+    elif not target_metrics_list:  # Handle empty list case
+        print(
+            f"Warning: 'target_metrics' list in config is empty. Using default: ['Sharpe Ratio']"
+        )
+        settings["target_metrics"] = ["Sharpe Ratio"]
+
+    return settings

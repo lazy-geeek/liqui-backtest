@@ -124,7 +124,7 @@ if __name__ == "__main__":
     ]
     average_lookback_period_days = backtest_settings["average_lookback_period_days"]
     modus_list = backtest_settings["modus"]  # Read the list of modes
-    target_metric = backtest_settings["target_metric"]
+    target_metrics_list = backtest_settings["target_metrics"]
 
     # Calculate margin
     try:
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     commission_decimal = commission_pct / 100.0
 
     # Print general optimization settings
-    print(f"Optimization Target: {target_metric}")
+    print(f"Optimization Targets: {', '.join(target_metrics_list)}")
     print(f"Symbols to process: {', '.join(symbols)}")
     print(f"Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
@@ -226,52 +226,72 @@ if __name__ == "__main__":
         # print(f"Data prepared for {symbol}. Shape: {data.shape}") # Removed for quieter output
         # print("-" * 30) # Removed for quieter output
 
-        # --- Mode Loop Start ---
-        for mode in tqdm(modus_list, desc=f"Modes ({symbol})", position=1, leave=False):
-            # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
+        # --- Target Metric Loop Start ---
+        for target_metric in tqdm(
+            target_metrics_list, desc=f"Metrics ({symbol})", position=1, leave=False
+        ):
+            # print(f"\n--- Starting Target Metric: {target_metric} for Symbol: {symbol} ---") # Removed for quieter output
 
-            # 5. Initialize Backtest Object for the current symbol and mode
-            # Note: We assume the strategy itself handles the 'mode' internally,
-            # potentially by reading config or through optimized parameters.
-            # If the strategy needs the mode explicitly, this initialization might need adjustment.
-            bt = Backtest(
-                data,
-                strategy_class,
-                cash=initial_cash,
-                commission=commission_decimal,
-                margin=margin,
-            )
+            # --- Mode Loop Start ---
+            for mode in tqdm(
+                modus_list,
+                desc=f"Modes ({symbol}, {target_metric})",
+                position=2,
+                leave=False,
+            ):
+                # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol}, Metric: {target_metric} ---") # Removed for quieter output
 
-            # 6. Parameter grid is built once outside the loop
+                # 5. Initialize Backtest Object for the current symbol and mode
+                # Note: We assume the strategy itself handles the 'mode' internally,
+                # potentially by reading config or through optimized parameters.
+                # If the strategy needs the mode explicitly, this initialization might need adjustment.
+                bt = Backtest(
+                    data,
+                    strategy_class,
+                    cash=initial_cash,
+                    commission=commission_decimal,
+                    margin=margin,
+                )
 
-            # Create a mode-specific parameter grid
-            mode_specific_param_grid = param_grid.copy()
-            mode_specific_param_grid["modus"] = mode  # Set the modus for this run
+                # 6. Parameter grid is built once outside the loop
 
-            # 7. Run optimization for the current symbol and mode using the specific grid
-            stats, heatmap = run_optimization(
-                bt, mode_specific_param_grid, target_metric
-            )
+                # Create a mode-specific parameter grid
+                mode_specific_param_grid = param_grid.copy()
+                mode_specific_param_grid["modus"] = mode  # Set the modus for this run
 
-            # 8. Process and save results for the current symbol and mode, and collect data
-            result_data = process_and_save_results(  # Capture return value
-                stats=stats,
-                heatmap=heatmap,
-                param_grid=param_grid,  # Note: param_grid is the full grid, not mode-specific
-                config=config,
-                active_strategy=active_strategy,
-                symbol=symbol,  # Pass the current symbol
-                mode=mode,  # Pass the current mode
-            )
-            if result_data:  # Append if results were successfully processed and saved
-                all_run_results.append(result_data)
-                symbol_results_for_excel.append(result_data)  # Also add to symbol list
-            # Inner progress bar updates automatically
-            # print(f"--- Finished Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
-        # --- Mode Loop End ---
+                # 7. Run optimization for the current symbol and mode using the specific grid
+                stats, heatmap = run_optimization(
+                    bt, mode_specific_param_grid, target_metric
+                )
+
+                # 8. Process and save results for the current symbol and mode, and collect data
+                result_data = process_and_save_results(  # Capture return value
+                    stats=stats,
+                    heatmap=heatmap,
+                    param_grid=param_grid,  # Note: param_grid is the full grid, not mode-specific
+                    config=config,
+                    active_strategy=active_strategy,
+                    symbol=symbol,  # Pass the current symbol
+                    mode=mode,  # Pass the current mode
+                    target_metric=target_metric,  # Pass the current target metric
+                )
+                if (
+                    result_data
+                ):  # Append if results were successfully processed and saved
+                    all_run_results.append(result_data)
+                    symbol_results_for_excel.append(
+                        result_data
+                    )  # Also add to symbol list
+                # Inner progress bar updates automatically
+                # print(f"--- Finished Mode: {mode} for Symbol: {symbol}, Metric: {target_metric} ---") # Removed for quieter output
+            # --- Mode Loop End ---
+            # print(f"--- Finished Target Metric: {target_metric} for Symbol: {symbol} ---") # Removed for quieter output
+        # --- Target Metric Loop End ---
 
         # --- Save Symbol-Specific Excel Summary ---
         if symbol_results_for_excel:
+            # Pass the list of results for this symbol, not just the last one
+            # Pass the current target_metric for the filename
             generate_symbol_summary_excel(
                 symbol_results_for_excel, active_strategy, symbol, target_metric
             )
@@ -282,9 +302,11 @@ if __name__ == "__main__":
     # No need to close tqdm iterators explicitly
 
     # --- Save Consolidated Excel Summary ---
-    save_summary_to_excel(all_run_results, active_strategy, target_metric)
+    # Pass the list of all results
+    save_summary_to_excel(all_run_results, active_strategy, target_metrics_list)
 
     total_script_time = time.time() - start_time
+    total_script_time_minutes = total_script_time / 60
     print(f"\n--- All Optimizations Finished ---")
-    print(f"Total script execution time: {total_script_time:.2f} seconds")
+    print(f"Total script execution time: {total_script_time_minutes:.2f} minutes")
     print("\a")
