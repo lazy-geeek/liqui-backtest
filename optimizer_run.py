@@ -8,6 +8,8 @@ from tqdm import tqdm
 # import multiprocessing as mp
 from typing import Dict, Tuple, Optional, Any
 from backtesting import Backtest
+import os
+import shutil
 import pandas as pd
 
 # Import our modules
@@ -166,6 +168,12 @@ if __name__ == "__main__":
     # --- Symbol Loop Start ---
     for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
         # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
+        results_dir = os.path.join(
+            "strategies", active_strategy, symbol, "optimization_results"
+        )
+        if os.path.exists(results_dir):
+            shutil.rmtree(results_dir)
+        os.makedirs(results_dir, exist_ok=True)
 
         # 4. Fetch and prepare data for the current symbol (once per symbol)
         # print("Preparing data...") # Removed for quieter output
