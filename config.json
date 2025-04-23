@@ -15,7 +15,7 @@
         "commission_percentage": 0.04,
         "liquidation_aggregation_minutes": 5,
         "leverage": 10,
-        "modus": "buy",
+        "modus": ["buy", "sell", "both"],
         "average_lookback_period_days": 14
     },
     "app_settings": {

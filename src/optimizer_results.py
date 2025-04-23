@@ -35,6 +35,7 @@ def process_and_save_results(
     config: Dict[str, Any],
     active_strategy: str,
     symbol: str,
+    mode: str,  # Add mode parameter
 ) -> None:
     """
     Process optimization results and save to files.
@@ -46,9 +47,10 @@ def process_and_save_results(
         config: Configuration dictionary
         active_strategy: Name of active strategy
         symbol: Trading symbol
+        mode: Trading mode ('buy', 'sell', 'both')
     """
     if stats is None:
-        print("No results to process - optimization failed")
+        print(f"No results to process for {symbol} ({mode}) - optimization failed")
         return
 
     # print("\nBest Parameters Found:") # Removed for quieter output
@@ -93,7 +95,8 @@ def process_and_save_results(
         )
         os.makedirs(output_dir, exist_ok=True)
         filename = os.path.join(
-            output_dir, f"optimization_result_{symbol}_{timestamp_str}.json"
+            output_dir,
+            f"optimization_result_{symbol}_{mode}_{timestamp_str}.json",  # Add mode to filename
         )
 
         # Prepare key metrics to save
@@ -142,8 +145,10 @@ def process_and_save_results(
                     concise_stats[key] = val
 
         combined_result = {
+            "symbol": symbol,  # Add symbol
+            "mode": mode,  # Add mode
             "best_params": best_params_dict,
-            "config": config,
+            "config": config,  # Keep original config for reference
             "optimization_stats": clean_for_json(concise_stats),
         }
 

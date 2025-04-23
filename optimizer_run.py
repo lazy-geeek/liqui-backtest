@@ -117,7 +117,7 @@ if __name__ == "__main__":
         "liquidation_aggregation_minutes"
     ]
     average_lookback_period_days = backtest_settings["average_lookback_period_days"]
-    modus = backtest_settings["modus"]
+    modus_list = backtest_settings["modus"]  # Read the list of modes
     target_metric = backtest_settings["target_metric"]
 
     # Calculate margin
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
     print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
     print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
-    print(f"Modus: {modus}")
+    print(f"Modes to process: {', '.join(modus_list)}")  # Updated print statement
     print("-" * 30)
 
     # 3. Dynamically import the strategy class (outside the loop as it's the same for all symbols)
@@ -164,12 +164,10 @@ if __name__ == "__main__":
     # print("-" * 30) # Removed for non-interactive run
 
     # --- Symbol Loop Start ---
-    progress_bar = tqdm(symbols, desc="Initializing...")
-    for symbol in progress_bar:
-        progress_bar.set_description(f"Processing: {symbol}")
+    for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
         # print(f"\n--- Starting Optimization for Symbol: {symbol} ---") # Removed for quieter output
 
-        # 4. Fetch and prepare data for the current symbol
+        # 4. Fetch and prepare data for the current symbol (once per symbol)
         # print("Preparing data...") # Removed for quieter output
         data = data_fetcher.prepare_data(
             symbol,  # Use the current symbol from the loop
@@ -183,6 +181,10 @@ if __name__ == "__main__":
         if data.empty:
             # Handle empty data case specifically for the symbol
             print(f"No data available for optimization for symbol {symbol}. Skipping.")
+            print(
+                f"No data available for symbol {symbol}. Skipping all modes for this symbol."
+            )
+            # No progress bar update needed here for outer loop
             continue  # Skip to the next symbol
 
         # Basic data validation
@@ -203,38 +205,57 @@ if __name__ == "__main__":
                 f"Error: Dataframe missing required columns for optimization: {missing_cols}."
             )
             print(f"Skipping symbol {symbol} due to missing data columns.")
+            # No progress bar update needed here for outer loop
             continue  # Skip to the next symbol
 
         # print(f"Data prepared for {symbol}. Shape: {data.shape}") # Removed for quieter output
         # print("-" * 30) # Removed for quieter output
 
-        # 5. Initialize Backtest Object for the current symbol
-        bt = Backtest(
-            data,
-            strategy_class,
-            cash=initial_cash,
-            commission=commission_decimal,
-            margin=margin,
-        )
+        # --- Mode Loop Start ---
+        for mode in tqdm(modus_list, desc=f"Modes ({symbol})", position=1, leave=False):
+            # print(f"\n--- Starting Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
 
-        # 6. Parameter grid is built once outside the loop
+            # 5. Initialize Backtest Object for the current symbol and mode
+            # Note: We assume the strategy itself handles the 'mode' internally,
+            # potentially by reading config or through optimized parameters.
+            # If the strategy needs the mode explicitly, this initialization might need adjustment.
+            bt = Backtest(
+                data,
+                strategy_class,
+                cash=initial_cash,
+                commission=commission_decimal,
+                margin=margin,
+            )
 
-        # 7. Run optimization for the current symbol
-        stats, heatmap = run_optimization(bt, param_grid, target_metric)
+            # 6. Parameter grid is built once outside the loop
 
-        # 8. Process and save results for the current symbol
-        process_and_save_results(
-            stats=stats,
-            heatmap=heatmap,
-            param_grid=param_grid,
-            config=config,
-            active_strategy=active_strategy,
-            symbol=symbol,  # Pass the current symbol
-        )
+            # Create a mode-specific parameter grid
+            mode_specific_param_grid = param_grid.copy()
+            mode_specific_param_grid["modus"] = mode  # Set the modus for this run
 
-        # print(f"--- Finished Optimization for Symbol: {symbol} ---") # Removed for quieter output
-        # --- Symbol Loop End ---
+            # 7. Run optimization for the current symbol and mode using the specific grid
+            stats, heatmap = run_optimization(
+                bt, mode_specific_param_grid, target_metric
+            )
 
+            # 8. Process and save results for the current symbol and mode
+            process_and_save_results(
+                stats=stats,
+                heatmap=heatmap,
+                param_grid=param_grid,
+                config=config,
+                active_strategy=active_strategy,
+                symbol=symbol,  # Pass the current symbol
+                mode=mode,  # Pass the current mode
+            )
+            # Inner progress bar updates automatically
+            # print(f"--- Finished Mode: {mode} for Symbol: {symbol} ---") # Removed for quieter output
+        # --- Mode Loop End ---
+
+        # print(f"--- Finished All Modes for Symbol: {symbol} ---") # Removed for quieter output
+    # --- Symbol Loop End ---
+
+    # No need to close tqdm iterators explicitly
     total_script_time = time.time() - start_time
     print(f"\n--- All Optimizations Finished ---")
     print(f"Total script execution time: {total_script_time:.2f} seconds")
