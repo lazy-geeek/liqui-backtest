@@ -5,6 +5,9 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
 
+# Added import
+from openpyxl.utils import get_column_letter
+
 # Define constants for requested parameters and stats to avoid repetition
 REQUESTED_BEST_PARAMS = [
     "average_liquidation_multiplier",
@@ -102,7 +105,39 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
         output_dir = os.path.dirname(excel_filename)
         os.makedirs(output_dir, exist_ok=True)
 
-        dataframe.to_excel(excel_filename, index=False, engine="openpyxl")
+        # Use ExcelWriter to gain more control
+        with pd.ExcelWriter(excel_filename, engine="openpyxl") as writer:
+            dataframe.to_excel(
+                writer, index=False, sheet_name="Sheet1"
+            )  # Specify sheet name
+
+            # Access the workbook and worksheet
+            # workbook = writer.book # Not strictly needed for these operations
+            worksheet = writer.sheets["Sheet1"]
+
+            # Freeze the top row (A2 is the first cell below the header)
+            worksheet.freeze_panes = "A2"
+
+            # Auto-size columns
+            for column_cells in worksheet.columns:
+                # Calculate max length, handle None values and header
+                try:
+                    # Use 0 if cell.value is None, convert others to string
+                    # Include header row (index 0) in length calculation
+                    length = max(
+                        len(str(cell.value)) if cell.value is not None else 0
+                        for cell in column_cells
+                    )
+                except TypeError:
+                    # Fallback in case of unexpected types, though str() should handle most
+                    length = 10  # Default width if calculation fails
+
+                # Add a little padding
+                adjusted_width = length + 2
+                # Set column width (using column letter)
+                column_letter = get_column_letter(column_cells[0].column)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+
     except ImportError:
         print(f"Error saving Excel file: Could not import 'openpyxl'.")
         print("Please install it: pip install openpyxl")
