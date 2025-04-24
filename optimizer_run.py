@@ -150,18 +150,15 @@ if __name__ == "__main__":
     # --- Delete existing Excel files ---
     excel_files = glob.glob("strategies/**/*.xlsx", recursive=True)
     if excel_files:
-        print("\n--- Found existing Excel files ---")
-        for file_path in excel_files:
-            print(file_path)
+        user_input = input(
+            "Found existing Excel files in 'strategies/' subfolders. Delete them? (y/n): "
+        ).lower()
 
-        user_input = input("Do you want to delete these files? (yes/no): ").lower()
-
-        if user_input == "yes":
+        if user_input == "y":
             print("Deleting files...")
             for file_path in excel_files:
                 try:
                     os.remove(file_path)
-                    print(f"Deleted: {file_path}")
                 except OSError as e:
                     print(f"Error deleting {file_path}: {e}")
             print("Finished deleting files.")
