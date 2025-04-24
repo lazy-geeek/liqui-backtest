@@ -10,6 +10,7 @@ from backtesting import Backtest
 import os
 import shutil
 import pandas as pd
+import glob
 
 # Import our modules
 from src import data_fetcher
@@ -144,6 +145,30 @@ if __name__ == "__main__":
     print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
     print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
     print(f"Modes to process: {', '.join(modus_list)}")  # Updated print statement
+    print("-" * 30)
+
+    # --- Delete existing Excel files ---
+    excel_files = glob.glob("strategies/**/*.xlsx", recursive=True)
+    if excel_files:
+        print("\n--- Found existing Excel files ---")
+        for file_path in excel_files:
+            print(file_path)
+
+        user_input = input("Do you want to delete these files? (yes/no): ").lower()
+
+        if user_input == "yes":
+            print("Deleting files...")
+            for file_path in excel_files:
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except OSError as e:
+                    print(f"Error deleting {file_path}: {e}")
+            print("Finished deleting files.")
+        else:
+            print("Deletion cancelled by user.")
+    else:
+        print("\nNo existing Excel files found in 'strategies/' subfolders.")
     print("-" * 30)
 
     # --- Symbol Loop Start ---
@@ -284,7 +309,6 @@ if __name__ == "__main__":
                     symbol_strategy_results_for_excel,
                     current_strategy_name,
                     symbol,
-                    target_metric,  # Pass current strategy name and symbol
                 )
 
                 # --- Strategy Loop End ---

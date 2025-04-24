@@ -5,29 +5,29 @@
         "take_profit_percentage": 4.0,
         "exit_on_opposite_signal": false,
         "slippage_percentage_per_side": 0.05,
-        "position_size_fraction": 0.01,
+        "position_size_fraction": 0.05,
         "cooldown_candles": 0
     },
     "optimization_ranges": {
         "average_liquidation_multiplier": {
             "start": 2.0,
-            "end": 10.0,
-            "step": 0.5
+            "end": 4.0,
+            "step": 1.0
         },
         "stop_loss_percentage": {
-            "start": 0.5,
-            "end": 5.0,
-            "step": 0.5
+            "start": 1,
+            "end": 2,
+            "step": 1
         },
         "take_profit_percentage": {
             "start": 1,
-            "end": 7.0,
-            "step": 0.5
+            "end": 4,
+            "step": 1
         },
         "cooldown_candles": {
             "start": 0,
-            "end": 10,
-            "step": 2
+            "end": 2,
+            "step": 1
         }
     }
 }

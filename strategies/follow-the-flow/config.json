@@ -10,17 +10,17 @@
     "optimization_ranges": {
         "average_liquidation_multiplier": {
             "start": 2.0,
-            "end": 10.0,
+            "end": 4.0,
             "step": 1.0
         },
         "stop_loss_percentage": {
-            "start": 0.5,
-            "end": 4.0,
-            "step": 0.5
+            "start": 1,
+            "end": 2.0,
+            "step": 1.0
         },
         "take_profit_percentage": {
             "start": 1.0,
-            "end": 10.0,
+            "end": 4.0,
             "step": 1.0
         }
     }

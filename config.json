@@ -4,12 +4,12 @@
         "symbols": ["SOLUSDT", "FARTCOINUSDT"],
         "timeframe": "1m",
         "start_date_iso": "2025-01-01T00:00:00Z",
-        "end_date_iso": "2025-01-15T00:00:00Z",
+        "end_date_iso": "2025-01-10T00:00:00Z",
         "initial_cash": 100000,
         "commission_percentage": 0.045,
         "liquidation_aggregation_minutes": 5,
         "leverage": 10,
-        "modus": ["buy", "sell", "both"],
+        "modus": ["buy", "both"],
         "average_lookback_period_days": 14
     },
     "app_settings": {

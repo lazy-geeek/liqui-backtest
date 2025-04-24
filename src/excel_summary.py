@@ -39,7 +39,7 @@ COLUMN_ORDER = [
 
 
 def _process_results_to_dataframe(
-    run_results: List[Dict[str, Any]], active_strategy: str, target_metric: str
+    run_results: List[Dict[str, Any]], active_strategy: str
 ) -> pd.DataFrame:
     """
     Processes a list of run results into a structured Pandas DataFrame.
@@ -65,7 +65,7 @@ def _process_results_to_dataframe(
             "symbol": run_result.get("symbol"),
             "mode": run_result.get("mode"),
             "target_metric": run_result.get(
-                "target_metric", target_metric
+                "target_metric"
             ),  # Get target_metric from run_result
         }
 
@@ -103,7 +103,6 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
         os.makedirs(output_dir, exist_ok=True)
 
         dataframe.to_excel(excel_filename, index=False, engine="openpyxl")
-        print(f"Optimization summary saved to: {excel_filename}")
     except ImportError:
         print(f"Error saving Excel file: Could not import 'openpyxl'.")
         print("Please install it: pip install openpyxl")
@@ -115,7 +114,6 @@ def generate_symbol_summary_excel(
     symbol_run_results: List[Dict[str, Any]],
     active_strategy: str,
     symbol: str,
-    target_metric: str,  # Changed back to single metric
 ) -> None:
     """
     Processes results for a single symbol and saves them to an Excel file
@@ -131,18 +129,14 @@ def generate_symbol_summary_excel(
         print(f"\nNo results for symbol {symbol} to save to Excel.")
         return
 
-    results_df = _process_results_to_dataframe(
-        symbol_run_results, active_strategy, target_metric
-    )
+    results_df = _process_results_to_dataframe(symbol_run_results, active_strategy)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Save within the symbol's optimization_results folder
-    output_dir = os.path.join(
-        "strategies", active_strategy, symbol, "optimization_results"
-    )
+    # Save within the strategy folder
+    output_dir = os.path.join("strategies", active_strategy)
     excel_filename = os.path.join(
         output_dir,
-        f"optimization_summary_{symbol}_{target_metric.replace(' ', '_')}_{timestamp_str}.xlsx",  # Include target_metric in filename
+        f"{symbol}_{timestamp_str}.xlsx",
     )
 
     _save_dataframe_to_excel(results_df, excel_filename)
@@ -151,7 +145,7 @@ def generate_symbol_summary_excel(
 def save_summary_to_excel(
     all_run_results: List[Dict[str, Any]],
     active_strategy: str,
-    target_metrics_list: List[str],  # Changed to list of metrics
+    target_metrics_list: List[str],
 ) -> None:
     """
     Processes collected optimization results from ALL symbols and saves them
@@ -171,9 +165,6 @@ def save_summary_to_excel(
     results_df = _process_results_to_dataframe(
         all_run_results,
         active_strategy,
-        (
-            target_metrics_list[0] if target_metrics_list else "Sharpe Ratio"
-        ),  # Pass the first metric as a fallback for the function signature, though it's not strictly used for data processing here
     )
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
