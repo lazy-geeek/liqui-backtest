@@ -63,12 +63,15 @@ def build_param_grid(config: Dict[str, Any]) -> Dict[str, Any]:
     # Add non-optimized parameters from other config sections
     strategy_defaults = config.get("strategy_parameters", {})
     app_settings = config.get("app_settings", {})
+    backtest_settings = config.get("backtest_settings", {})
 
-    param_grid["slippage_percentage_per_side"] = strategy_defaults.get(
-        "slippage_percentage_per_side", 0.05
+    param_grid["slippage_percentage_per_side"] = backtest_settings.get(
+        "slippage_percentage_per_side",
+        strategy_defaults.get("slippage_percentage_per_side", 0.05),
     )
-    param_grid["position_size_fraction"] = strategy_defaults.get(
-        "position_size_fraction", 0.01
+    param_grid["position_size_fraction"] = backtest_settings.get(
+        "position_size_fraction",
+        strategy_defaults.get("position_size_fraction", 0.01),
     )
 
     # Adjust param_grid based on modus

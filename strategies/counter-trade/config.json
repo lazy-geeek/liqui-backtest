@@ -4,8 +4,6 @@
         "stop_loss_percentage": 3.0,
         "take_profit_percentage": 4.0,
         "exit_on_opposite_signal": false,
-        "slippage_percentage_per_side": 0.05,
-        "position_size_fraction": 0.05,
         "cooldown_candles": 0
     },
     "optimization_ranges": {

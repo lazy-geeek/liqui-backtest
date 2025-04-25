@@ -10,7 +10,9 @@
         "liquidation_aggregation_minutes": 5,
         "leverage": 10,
         "modus": ["buy", "both"],
-        "average_lookback_period_days": 14
+        "average_lookback_period_days": 14,
+        "slippage_percentage_per_side": 0.05,
+        "position_size_fraction": 0.05
     },
     "app_settings": {
         "debug_mode": false
