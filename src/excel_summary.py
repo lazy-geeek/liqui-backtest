@@ -142,6 +142,8 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                 column_letter = get_column_letter(column_cells[0].column)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
 
+            # Enable filtering for all columns in the header row
+            worksheet.auto_filter.ref = worksheet.dimensions
             # --- Highlighting Logic ---
             lime_green_fill = PatternFill(
                 start_color="CCFFCC", end_color="CCFFCC", fill_type="solid"
