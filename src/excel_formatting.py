@@ -2,23 +2,28 @@
 Module for writing pandas DataFrames to Excel with formatting and highlighting.
 """
 
+from typing import Dict, Any
 import os
 import pandas as pd
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill
 
 
-def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> None:
+def _save_dataframe_to_excel(
+    dataframe: pd.DataFrame, excel_filename: str, parameters: Dict[str, Any] = None
+) -> None:
     """
     Saves a Pandas DataFrame to an Excel file with formatting:
     - Auto-sized columns
     - Frozen header row
     - Auto-filter
     - Per-symbol best-value and worst-value highlighting
+    - Optional parameters sheet
 
     Args:
         dataframe: The DataFrame to save.
         excel_filename: The full path for the output Excel file.
+        parameters: Dictionary of parameters to save in a separate sheet.
     """
     try:
         # Ensure the directory exists before saving
@@ -26,8 +31,30 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
         os.makedirs(output_dir, exist_ok=True)
 
         with pd.ExcelWriter(excel_filename, engine="openpyxl") as writer:
-            dataframe.to_excel(writer, index=False, sheet_name="Sheet1")
-            worksheet = writer.sheets["Sheet1"]
+            # Write main results sheet
+            dataframe.to_excel(writer, index=False, sheet_name="Results")
+            worksheet = writer.sheets["Results"]
+
+            # Write parameters sheet if provided
+            if parameters:
+                params_df = pd.DataFrame(
+                    {"Parameter": parameters.keys(), "Value": parameters.values()}
+                )
+                params_df.to_excel(writer, index=False, sheet_name="Parameters")
+
+                # Format parameters sheet columns
+                params_sheet = writer.sheets["Parameters"]
+                for column_cells in params_sheet.columns:
+                    try:
+                        length = max(
+                            len(str(cell.value)) if cell.value is not None else 0
+                            for cell in column_cells
+                        )
+                    except TypeError:
+                        length = 10
+                    adjusted_width = length + 2
+                    col_letter = get_column_letter(column_cells[0].column)
+                    params_sheet.column_dimensions[col_letter].width = adjusted_width
 
             # Freeze header row
             worksheet.freeze_panes = "A2"

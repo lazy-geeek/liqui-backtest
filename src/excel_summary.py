@@ -1,11 +1,44 @@
 """Orchestrator for generating optimization summary Excel files."""
 
 import os
+import json
 from datetime import datetime
 from typing import List, Dict, Any
 
 from src.excel_processing import _process_results_to_dataframe
 from src.excel_formatting import _save_dataframe_to_excel
+
+
+def _get_backtest_params_from_config() -> Dict[str, Any]:
+    """Extract backtest and optimization parameters from config.json.
+    
+    Returns:
+        Dictionary containing all relevant parameters from config.json
+    """
+    with open("config.json") as f:
+        config = json.load(f)
+
+    return {
+        "timeframe": config["backtest_settings"]["timeframe"],
+        "start_date_iso": config["backtest_settings"]["start_date_iso"],
+        "end_date_iso": config["backtest_settings"]["end_date_iso"],
+        "initial_cash": config["backtest_settings"]["initial_cash"],
+        "commission_percentage": config["backtest_settings"]["commission_percentage"],
+        "slippage_percentage_per_side": config["backtest_settings"][
+            "slippage_percentage_per_side"
+        ],
+        "position_size_fraction": config["backtest_settings"]["position_size_fraction"],
+        "leverage": config["backtest_settings"]["leverage"],
+        "liquidation_aggregation_minutes": config["backtest_settings"][
+            "liquidation_aggregation_minutes"
+        ],
+        "average_lookback_period_days": config["backtest_settings"][
+            "average_lookback_period_days"
+        ],
+        "optimize_exit_signal_if_modus_both": config["optimization_settings"][
+            "optimize_exit_signal_if_modus_both"
+        ],
+    }
 
 
 def generate_symbol_summary_excel(
@@ -35,7 +68,9 @@ def generate_symbol_summary_excel(
         f"{symbol}_{timestamp_str}.xlsx",
     )
 
-    _save_dataframe_to_excel(results_df, excel_filename)
+    params = _get_backtest_params_from_config()
+
+    _save_dataframe_to_excel(results_df, excel_filename, params)
 
 
 def save_summary_to_excel(
@@ -63,8 +98,10 @@ def save_summary_to_excel(
     excel_filename = os.path.join(
         output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
+params = _get_backtest_params_from_config()
 
-    _save_dataframe_to_excel(results_df, excel_filename)
+
+    _save_dataframe_to_excel(results_df, excel_filename, params)
 
 
 def generate_overall_summary_excel(
@@ -100,4 +137,6 @@ def generate_overall_summary_excel(
     )
 
     print(f"Saving overall summary to: {excel_filename}")
-    _save_dataframe_to_excel(results_df, excel_filename)
+    params = _get_backtest_params_from_config()
+
+    _save_dataframe_to_excel(results_df, excel_filename, params)
