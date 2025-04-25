@@ -5,8 +5,9 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
 
-# Added import
+# Added imports
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import PatternFill  # Added for cell styling
 
 # Define constants for requested stats to avoid repetition
 REQUESTED_STATS = [
@@ -140,6 +141,73 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                 # Set column width (using column letter)
                 column_letter = get_column_letter(column_cells[0].column)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
+
+            # --- Highlighting Logic ---
+            lime_green_fill = PatternFill(
+                start_color="CCFFCC", end_color="CCFFCC", fill_type="solid"
+            )
+            highlight_cols = {
+                "Equity Final [$]": "max",
+                "Commissions [$]": "min",
+                "Return [%]": "max",
+                "Return (Ann.) [%]": "max",
+                "Max. Drawdown [%]": "max",  # Max is closest to zero for negative values
+                "Max. Drawdown Duration": "min",
+                "Win Rate [%]": "max",
+                "Sharpe Ratio": "max",
+                "Sortino Ratio": "max",
+                "Calmar Ratio": "max",
+                "Profit Factor": "max",
+            }
+
+            # Get header row (row 1) to map names to column indices
+            headers = {cell.value: cell.column for cell in worksheet[1]}
+
+            for col_name, criteria in highlight_cols.items():
+                if col_name not in dataframe.columns or col_name not in headers:
+                    # Silently skip if column doesn't exist in data or Excel header
+                    continue
+
+                col_idx = headers[col_name]
+                col_letter = get_column_letter(col_idx)
+
+                try:
+                    # Use the original DataFrame for finding the best value
+                    numeric_col = pd.to_numeric(
+                        dataframe[col_name], errors="coerce"
+                    ).dropna()
+                    if numeric_col.empty:
+                        continue  # Skip if no valid numeric data
+
+                    best_value = (
+                        numeric_col.max() if criteria == "max" else numeric_col.min()
+                    )
+
+                    # Iterate through worksheet cells (starting from row 2)
+                    for row_idx in range(2, worksheet.max_row + 1):
+                        cell = worksheet[f"{col_letter}{row_idx}"]
+                        try:
+                            # Attempt conversion, handle potential errors/None
+                            cell_value_numeric = pd.to_numeric(
+                                cell.value, errors="coerce"
+                            )
+
+                            # Check if conversion was successful and compare with tolerance
+                            if (
+                                pd.notna(cell_value_numeric)
+                                and abs(cell_value_numeric - best_value) < 1e-9
+                            ):
+                                cell.fill = lime_green_fill
+                        except (TypeError, ValueError):
+                            # Ignore cells that cannot be converted to numeric
+                            pass
+
+                except Exception as e_highlight:
+                    # Log error during highlighting specific column but continue
+                    print(
+                        f"Warning: Error highlighting column '{col_name}': {e_highlight}"
+                    )
+            # --- End Highlighting Logic ---
 
     except ImportError:
         print(f"Error saving Excel file: Could not import 'openpyxl'.")
