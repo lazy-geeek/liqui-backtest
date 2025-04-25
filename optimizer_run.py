@@ -23,7 +23,8 @@ from src.optimizer_params import build_param_grid, calculate_total_combinations
 from src.optimizer_results import process_and_save_results
 from src.excel_summary import (
     generate_symbol_summary_excel,
-)  # Only import generate_symbol_summary_excel
+    save_summary_to_excel,  # Import the consolidated summary function
+)
 
 
 # Suppress specific warnings (optional, but can clean up output)
@@ -168,80 +169,83 @@ if __name__ == "__main__":
         print("\nNo existing Excel files found in 'strategies/' subfolders.")
     print("-" * 30)
 
-    # --- Symbol Loop Start ---
-    for symbol in tqdm(symbols, desc="Symbols", position=0, leave=True):
-        # 4. Fetch and prepare data for the current symbol (once per symbol)
-        data = data_fetcher.prepare_data(
-            symbol,  # Use the current symbol from the loop
-            timeframe,
-            start_date,
-            end_date,
-            liquidation_aggregation_minutes=liquidation_aggregation_minutes,
-            average_lookback_period_days=average_lookback_period_days,
-        )
+    # --- Strategy Loop Start ---
+    for current_strategy_name in tqdm(
+        active_strategies, desc="Strategies", position=0, leave=True
+    ):
 
-        if data.empty:
-            # Handle empty data case specifically for the symbol
-            print(f"No data available for optimization for symbol {symbol}. Skipping.")
+        # Initialize list to store results for ALL symbols within this strategy
+        strategy_all_symbols_results = []
+
+        # Load strategy config ONCE per strategy
+        strategy_config = load_strategy_config(current_strategy_name)
+
+        # Dynamically import the strategy class ONCE per strategy
+        strategy_module_path = f"src.strategies.{current_strategy_name}.strategy"
+        try:
+            strategy_module = importlib.import_module(strategy_module_path)
+        except ModuleNotFoundError:
             print(
-                f"No data available for symbol {symbol}. Skipping all modes for this symbol."
+                f"Error: Strategy module not found at {strategy_module_path}. Skipping strategy {current_strategy_name}."
             )
-            # No progress bar update needed here for outer loop
-            continue  # Skip to the next symbol
+            continue  # Skip to the next strategy
 
-        # Basic data validation
-        required_cols = [
-            "Open",
-            "High",
-            "Low",
-            "Close",
-            "Volume",
-            "Liq_Buy_Size",
-            "Liq_Sell_Size",
-            "Liq_Buy_Aggregated",
-            "Liq_Sell_Aggregated",
-        ]
-        missing_cols = [col for col in required_cols if col not in data.columns]
-        if missing_cols:
+        # Find the strategy class ONCE per strategy
+        strategy_class = None
+        for attr in dir(strategy_module):
+            if attr.endswith("Strategy"):
+                strategy_class = getattr(strategy_module, attr)
+                break
+        if strategy_class is None:
             print(
-                f"Error: Dataframe missing required columns for optimization: {missing_cols}."
+                f"Error: No strategy class found in {strategy_module_path}. Skipping strategy {current_strategy_name}."
             )
-            print(f"Skipping symbol {symbol} due to missing data columns.")
-            # No progress bar update needed here for outer loop
-            continue  # Skip to the next symbol
+            continue  # Skip to the next strategy
 
-        # --- Strategy Loop Start ---
-        for current_strategy_name in tqdm(
-            active_strategies, desc=f"Strategies ({symbol})", position=1, leave=False
+        # Build parameter grid ONCE per strategy
+        param_grid = build_param_grid(strategy_config)
+        total_combinations = calculate_total_combinations(
+            param_grid
+        )  # Maybe log this per strategy?
+
+        # --- Symbol Loop Start (Now inside Strategy loop) ---
+        for symbol in tqdm(
+            symbols, desc=f"Symbols ({current_strategy_name})", position=1, leave=False
         ):
-            # Load strategy config for the current strategy
-            strategy_config = load_strategy_config(current_strategy_name)
+            # 4. Fetch and prepare data for the current symbol (once per symbol)
+            data = data_fetcher.prepare_data(
+                symbol,
+                timeframe,
+                start_date,
+                end_date,
+                liquidation_aggregation_minutes=liquidation_aggregation_minutes,
+                average_lookback_period_days=average_lookback_period_days,
+            )
 
-            # Dynamically import the strategy class
-            strategy_module_path = f"src.strategies.{current_strategy_name}.strategy"
-            try:
-                strategy_module = importlib.import_module(strategy_module_path)
-            except ModuleNotFoundError:
+            if data.empty:
                 print(
-                    f"Error: Strategy module not found at {strategy_module_path}. Skipping strategy {current_strategy_name} for symbol {symbol}."
+                    f"\nNo data for {symbol} in {current_strategy_name}. Skipping symbol."
                 )
-                continue  # Skip to the next strategy
+                continue  # Skip to the next symbol
 
-            # Find the strategy class (assume only one class ending with 'Strategy')
-            strategy_class = None
-            for attr in dir(strategy_module):
-                if attr.endswith("Strategy"):
-                    strategy_class = getattr(strategy_module, attr)
-                    break
-            if strategy_class is None:
+            # Basic data validation
+            required_cols = [
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Volume",
+                "Liq_Buy_Size",
+                "Liq_Sell_Size",
+                "Liq_Buy_Aggregated",
+                "Liq_Sell_Aggregated",
+            ]
+            missing_cols = [col for col in required_cols if col not in data.columns]
+            if missing_cols:
                 print(
-                    f"Error: No strategy class found in {strategy_module_path}. Skipping strategy {current_strategy_name} for symbol {symbol}."
+                    f"\nError: Data for {symbol} missing columns: {missing_cols}. Skipping symbol for {current_strategy_name}."
                 )
-                continue  # Skip to the next strategy
-
-            # Build parameter grid and calculate combinations for the current strategy
-            param_grid = build_param_grid(strategy_config)
-            total_combinations = calculate_total_combinations(param_grid)
+                continue  # Skip to the next symbol
 
             # Initialize list for this symbol and strategy's results
             symbol_strategy_results_for_excel = []
@@ -249,58 +253,58 @@ if __name__ == "__main__":
             # --- Target Metric Loop Start ---
             for target_metric in tqdm(
                 target_metrics_list,
-                desc=f"Metrics ({symbol}, {current_strategy_name})",
+                desc=f"Metrics ({current_strategy_name}, {symbol})",
                 position=2,
                 leave=False,
             ):
-
                 # --- Mode Loop Start ---
                 for mode in tqdm(
                     modus_list,
-                    desc=f"Modes ({symbol}, {current_strategy_name}, {target_metric})",
+                    desc=f"Modes ({current_strategy_name}, {symbol}, {target_metric})",
                     position=3,
                     leave=False,
                 ):
-
-                    # 5. Initialize Backtest Object for the current symbol, strategy, and mode
+                    # 5. Initialize Backtest Object
                     bt = Backtest(
                         data,
-                        strategy_class,  # Use the strategy class for the current strategy
+                        strategy_class,  # Use class loaded per strategy
                         cash=initial_cash,
                         commission=commission_decimal,
                         margin=margin,
                     )
 
                     # Create a mode-specific parameter grid
-                    mode_specific_param_grid = param_grid.copy()
-                    mode_specific_param_grid["modus"] = (
-                        mode  # Set the modus for this run
-                    )
+                    mode_specific_param_grid = (
+                        param_grid.copy()
+                    )  # Use grid built per strategy
+                    mode_specific_param_grid["modus"] = mode
 
-                    # 7. Run optimization for the current symbol, strategy, and mode using the specific grid
+                    # 7. Run optimization
                     stats, heatmap = run_optimization(
                         bt, mode_specific_param_grid, target_metric
                     )
 
-                    # 8. Process results and collect data for the current symbol, strategy, and mode
-                    result_data = process_and_save_results(  # Capture return value
+                    # 8. Process results
+                    result_data = process_and_save_results(
                         stats=stats,
                         heatmap=heatmap,
-                        param_grid=param_grid,  # Note: param_grid is the full grid for the current strategy
+                        param_grid=param_grid,  # Use grid built per strategy
                         config=config,
-                        active_strategy=current_strategy_name,  # Pass the current strategy name
-                        symbol=symbol,  # Pass the current symbol
-                        mode=mode,  # Pass the current mode
-                        target_metric=target_metric,  # Pass the current target metric
+                        active_strategy=current_strategy_name,
+                        symbol=symbol,
+                        mode=mode,
+                        target_metric=target_metric,
                     )
-                    if result_data:  # Append if results were successfully processed
+                    if result_data:
                         symbol_strategy_results_for_excel.append(result_data)
+                        strategy_all_symbols_results.append(
+                            result_data
+                        )  # Collect for strategy summary
 
-                    # Inner progress bar updates automatically
-                    # --- Mode Loop End ---
-                    # --- Target Metric Loop End ---
+                # --- Mode Loop End ---
+            # --- Target Metric Loop End ---
 
-            # --- Save Symbol and Strategy Specific Excel Summary ---
+            # --- Save Symbol Specific Excel Summary ---
             if symbol_strategy_results_for_excel:
                 generate_symbol_summary_excel(
                     symbol_strategy_results_for_excel,
@@ -308,9 +312,17 @@ if __name__ == "__main__":
                     symbol,
                 )
 
-                # --- Strategy Loop End ---
+        # --- Symbol Loop End ---
 
-            # --- Symbol Loop End ---
+        # --- Save Consolidated Strategy Summary (after processing all symbols for this strategy) ---
+        if strategy_all_symbols_results:
+            save_summary_to_excel(
+                strategy_all_symbols_results,
+                current_strategy_name,  # Now correctly refers to the current strategy in the outer loop
+                target_metrics_list,
+            )
+
+    # --- Strategy Loop End ---
 
     # No need to close tqdm iterators explicitly
 

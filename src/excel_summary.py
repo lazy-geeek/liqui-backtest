@@ -201,7 +201,6 @@ def save_summary_to_excel(
         print("\nNo consolidated results to save to Excel.")
         return
 
-    print("\n--- Consolidating and Saving Final Optimization Summary ---")
     # _process_results_to_dataframe already handles extracting the individual target_metric from each run_result
     results_df = _process_results_to_dataframe(
         all_run_results,
@@ -212,7 +211,7 @@ def save_summary_to_excel(
     # Save in the main strategy directory
     output_dir = os.path.join("strategies", active_strategy)
     excel_filename = os.path.join(
-        output_dir, f"consolidated_optimization_summary_{timestamp_str}.xlsx"
+        output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
 
     _save_dataframe_to_excel(results_df, excel_filename)
