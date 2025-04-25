@@ -12,6 +12,42 @@ import shutil
 import pandas as pd
 import glob
 
+
+def check_dependencies():
+    """Check if all dependencies from requirements.txt are installed and print status."""
+    import_mappings = {
+        "python-dotenv": "dotenv"
+    }  # Mapping for packages with different import names
+    try:
+        with open("requirements.txt", "r") as f:
+            requirements = f.readlines()
+        packages = [
+            line.strip().split("==")[0]
+            for line in requirements
+            if line.strip() and not line.startswith("#")
+        ]
+        missing_packages = []
+        for package in packages:
+            import_name = import_mappings.get(
+                package, package
+            )  # Use mapped name if available
+            try:
+                importlib.import_module(import_name)
+            except ImportError:
+                missing_packages.append(package)
+
+        if missing_packages:
+            print(
+                f"Missing packages: {', '.join(missing_packages)}. Please install them using 'pip install {' '.join(missing_packages)}'"
+            )
+            exit(1)  # Exit if any are missing
+        else:
+            print("All modules are available.")  # Print success message
+    except FileNotFoundError:
+        print("requirements.txt not found!")
+        exit(1)
+
+
 # Import our modules
 from src import data_fetcher
 from src.optimizer_config import (
@@ -99,6 +135,7 @@ def run_optimization(
 
 if __name__ == "__main__":
     start_time = time.time()
+    check_dependencies()
     print("--- Starting Parameter Optimization ---")
 
     # 1. Load all configurations
