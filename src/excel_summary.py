@@ -300,6 +300,18 @@ def generate_overall_summary_excel(
     # primarily uses the 'strategy_name' already within each result dict.
     # The _process_results_to_dataframe function handles different parameter sets
     results_df = _process_results_to_dataframe(all_strategies_results)
+    # Sort the DataFrame first by Symbol (asc), then by Return [%] (desc)
+    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
+        # Sort by both columns if they exist
+        results_df = results_df.sort_values(
+            by=["symbol", "Return [%]"], ascending=[True, False]
+        )  # Note: False for descending Return [%]
+    elif "symbol" in results_df.columns:
+        # Fallback: Sort only by Symbol if 'Return [%]' is missing
+        results_df = results_df.sort_values(by=["symbol"], ascending=True)
+    else:
+        # Optional: Log if neither column is present for sorting
+        print("WARNING: Could not sort overall summary. 'symbol' column not found.")
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = "strategies"  # Relative path for the strategies directory
