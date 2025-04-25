@@ -8,13 +8,7 @@ from typing import List, Dict, Any
 # Added import
 from openpyxl.utils import get_column_letter
 
-# Define constants for requested parameters and stats to avoid repetition
-REQUESTED_BEST_PARAMS = [
-    "average_liquidation_multiplier",
-    "exit_on_opposite_signal",
-    "stop_loss_percentage",
-    "take_profit_percentage",
-]
+# Define constants for requested stats to avoid repetition
 REQUESTED_STATS = [
     "Equity Final [$]",
     "Commissions [$]",
@@ -31,50 +25,51 @@ REQUESTED_STATS = [
     "Kelly Criterion",
     "Profit Factor",
 ]
-COLUMN_ORDER = [
-    "strategy_name",
-    "symbol",
-    "mode",
-    *REQUESTED_BEST_PARAMS,  # Unpack the list here
-    "target_metric",
-    *REQUESTED_STATS,  # Unpack the list here
-]
 
 
 def _process_results_to_dataframe(
     run_results: List[Dict[str, Any]], active_strategy: str
 ) -> pd.DataFrame:
     """
-    Processes a list of run results into a structured Pandas DataFrame.
+    Processes a list of run results into a structured Pandas DataFrame,
+    dynamically including optimized parameters.
 
     Args:
         run_results: List of result dictionaries.
         active_strategy: The name of the strategy being run.
-        target_metric: The optimization target metric name.
 
     Returns:
         A Pandas DataFrame with the processed results.
     """
     summary_data_for_excel = []
+    all_best_param_keys = set()
+
+    # First pass: Collect all unique keys from best_params across all results
     for run_result in run_results:
-        # Use .get() extensively for safety
-        config_data = run_result.get("config", {})
+        best_params = run_result.get("best_params", {})
+        all_best_param_keys.update(best_params.keys())
+
+    # Sort parameter keys for consistent column order
+    sorted_best_param_keys = sorted(list(all_best_param_keys))
+
+    # Second pass: Build the data for the DataFrame
+    for run_result in run_results:
+        config_data = run_result.get("config", {})  # Still needed for strategy_name
         best_params = run_result.get("best_params", {})
         opt_stats = run_result.get("optimization_stats", {})
-        optimization_settings = config_data.get("optimization_settings", {})
 
         flat_data = {
-            "strategy_name": config_data.get("active_strategy", active_strategy),
+            "strategy_name": config_data.get(
+                "active_strategy", active_strategy
+            ),  # Get strategy name from config if available
             "symbol": run_result.get("symbol"),
             "mode": run_result.get("mode"),
-            "target_metric": run_result.get(
-                "target_metric"
-            ),  # Get target_metric from run_result
+            "target_metric": run_result.get("target_metric"),
         }
 
-        # Extract best params
-        for param in REQUESTED_BEST_PARAMS:
-            flat_data[param] = best_params.get(param)
+        # Extract best params dynamically using all collected keys
+        for param_key in sorted_best_param_keys:
+            flat_data[param_key] = best_params.get(param_key)  # Use .get() for safety
 
         # Extract stats
         for stat in REQUESTED_STATS:
@@ -84,11 +79,22 @@ def _process_results_to_dataframe(
 
     results_df = pd.DataFrame(summary_data_for_excel)
 
+    # Define dynamic column order
+    column_order = [
+        "strategy_name",
+        "symbol",
+        "mode",
+        *sorted_best_param_keys,  # Unpack dynamic best param keys
+        "target_metric",
+        *REQUESTED_STATS,  # Unpack stats
+    ]
+
     # Ensure all expected columns exist and set order
-    for col in COLUMN_ORDER:
+    for col in column_order:
         if col not in results_df.columns:
-            results_df[col] = pd.NA
-    results_df = results_df[COLUMN_ORDER]
+            results_df[col] = pd.NA  # Add missing columns with NA
+    results_df = results_df[column_order]  # Reorder columns
+
     return results_df
 
 
