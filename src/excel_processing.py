@@ -23,6 +23,12 @@ REQUESTED_STATS = [
     "Profit Factor",
 ]
 
+# Define parameters that are part of the strategy but not optimized
+FIXED_PARAMS_TO_EXCLUDE = {
+    "position_size_fraction",
+    "slippage_percentage_per_side",
+}
+
 
 def _process_results_to_dataframe(run_results: List[Dict[str, Any]]) -> pd.DataFrame:
     """
@@ -41,7 +47,9 @@ def _process_results_to_dataframe(run_results: List[Dict[str, Any]]) -> pd.DataF
     # First pass: Collect all unique keys from best_params across all results
     for run_result in run_results:
         best_params = run_result.get("best_params", {})
-        all_best_param_keys.update(best_params.keys())
+        all_best_param_keys.update(
+            key for key in best_params.keys() if key not in FIXED_PARAMS_TO_EXCLUDE
+        )
 
     # Sort parameter keys for consistent column order
     sorted_best_param_keys = sorted(all_best_param_keys)
