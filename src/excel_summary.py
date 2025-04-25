@@ -165,50 +165,77 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
             # Get header row (row 1) to map names to column indices
             headers = {cell.value: cell.column for cell in worksheet[1]}
 
-            for col_name, criteria in highlight_cols.items():
-                if col_name not in dataframe.columns or col_name not in headers:
-                    # Silently skip if column doesn't exist in data or Excel header
-                    continue
+            # --- Per-Symbol Highlighting Logic ---
+            best_values_per_symbol = {}
+            symbol_col_name = "symbol"
+            if symbol_col_name in dataframe.columns:
+                grouped_by_symbol = dataframe.groupby(symbol_col_name)
 
-                col_idx = headers[col_name]
-                col_letter = get_column_letter(col_idx)
+                for col_name, criteria in highlight_cols.items():
+                    if col_name in dataframe.columns:
+                        best_values_per_symbol[col_name] = {}
+                        for symbol, group_df in grouped_by_symbol:
+                            numeric_col = pd.to_numeric(
+                                group_df[col_name], errors="coerce"
+                            ).dropna()
+                            if not numeric_col.empty:
+                                best_value = (
+                                    numeric_col.max()
+                                    if criteria == "max"
+                                    else numeric_col.min()
+                                )
+                                best_values_per_symbol[col_name][symbol] = best_value
+            # --- End Per-Symbol Highlighting Logic Setup ---
 
-                try:
-                    # Use the original DataFrame for finding the best value
-                    numeric_col = pd.to_numeric(
-                        dataframe[col_name], errors="coerce"
-                    ).dropna()
-                    if numeric_col.empty:
-                        continue  # Skip if no valid numeric data
+            # Get the column index for 'symbol' in the worksheet
+            symbol_col_idx = headers.get(symbol_col_name)
 
-                    best_value = (
-                        numeric_col.max() if criteria == "max" else numeric_col.min()
-                    )
+            if symbol_col_idx is not None:
+                # Iterate through highlightable columns
+                for col_name, criteria in highlight_cols.items():
+                    if col_name not in dataframe.columns or col_name not in headers:
+                        # Silently skip if column doesn't exist in data or Excel header
+                        continue
 
-                    # Iterate through worksheet cells (starting from row 2)
+                    col_idx = headers[col_name]
+                    col_letter = get_column_letter(col_idx)
+
+                    # Iterate through worksheet data rows (starting from row 2)
                     for row_idx in range(2, worksheet.max_row + 1):
                         cell = worksheet[f"{col_letter}{row_idx}"]
-                        try:
-                            # Attempt conversion, handle potential errors/None
-                            cell_value_numeric = pd.to_numeric(
-                                cell.value, errors="coerce"
-                            )
+                        symbol_cell = worksheet[
+                            f"{get_column_letter(symbol_col_idx)}{row_idx}"
+                        ]
+                        current_symbol = (
+                            symbol_cell.value
+                        )  # Get the symbol for the current row
 
-                            # Check if conversion was successful and compare with tolerance
-                            if (
-                                pd.notna(cell_value_numeric)
-                                and abs(cell_value_numeric - best_value) < 1e-9
-                            ):
-                                cell.fill = lime_green_fill
-                        except (TypeError, ValueError):
-                            # Ignore cells that cannot be converted to numeric
-                            pass
+                        if current_symbol in best_values_per_symbol.get(col_name, {}):
+                            symbol_best_value = best_values_per_symbol[col_name][
+                                current_symbol
+                            ]
 
-                except Exception as e_highlight:
-                    # Log error during highlighting specific column but continue
-                    print(
-                        f"Warning: Error highlighting column '{col_name}': {e_highlight}"
-                    )
+                            try:
+                                # Attempt conversion, handle potential errors/None
+                                cell_value_numeric = pd.to_numeric(
+                                    cell.value, errors="coerce"
+                                )
+
+                                # Check if conversion was successful and compare with tolerance
+                                if (
+                                    pd.notna(cell_value_numeric)
+                                    and abs(cell_value_numeric - symbol_best_value)
+                                    < 1e-9
+                                ):
+                                    cell.fill = lime_green_fill
+                            except (TypeError, ValueError):
+                                # Ignore cells that cannot be converted to numeric
+                                pass
+            else:
+                print(
+                    "Warning: 'symbol' column not found in Excel headers. Skipping per-symbol highlighting."
+                )
+
             # --- End Highlighting Logic ---
 
     except ImportError:
