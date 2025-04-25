@@ -11,7 +11,7 @@ from src.excel_formatting import _save_dataframe_to_excel
 
 def _get_backtest_params_from_config() -> Dict[str, Any]:
     """Extract backtest and optimization parameters from config.json.
-    
+
     Returns:
         Dictionary containing all relevant parameters from config.json
     """
@@ -98,8 +98,7 @@ def save_summary_to_excel(
     excel_filename = os.path.join(
         output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
-params = _get_backtest_params_from_config()
-
+    params = _get_backtest_params_from_config()
 
     _save_dataframe_to_excel(results_df, excel_filename, params)
 
