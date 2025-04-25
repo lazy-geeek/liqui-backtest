@@ -83,22 +83,35 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                         best_per_symbol[col_name] = {}
                         worst_per_symbol[col_name] = {}  # Initialize for worst
                         for symbol, group in grouped:
-                            numeric = pd.to_numeric(
-                                group[col_name], errors="coerce"
-                            ).dropna()
-                            if not numeric.empty:
-                                best = (
-                                    numeric.max()
-                                    if criteria == "max"
-                                    else numeric.min()
-                                )
-                                worst = (
-                                    numeric.min()
-                                    if criteria == "max"
-                                    else numeric.max()
-                                )  # Inverse of criteria
-                                best_per_symbol[col_name][symbol] = best
-                                worst_per_symbol[col_name][symbol] = worst
+                            if col_name == "Max. Drawdown Duration":
+                                # Handle as Timedelta
+                                timedeltas = pd.to_timedelta(
+                                    group[col_name], errors="coerce"
+                                ).dropna()
+                                if not timedeltas.empty:
+                                    best = timedeltas.min()  # Smallest duration is best
+                                    worst = (
+                                        timedeltas.max()
+                                    )  # Largest duration is worst
+                                    best_per_symbol[col_name][symbol] = best
+                                    worst_per_symbol[col_name][symbol] = worst
+                            else:
+                                numeric = pd.to_numeric(
+                                    group[col_name], errors="coerce"
+                                ).dropna()
+                                if not numeric.empty:
+                                    best = (
+                                        numeric.max()
+                                        if criteria == "max"
+                                        else numeric.min()
+                                    )
+                                    worst = (
+                                        numeric.min()
+                                        if criteria == "max"
+                                        else numeric.max()
+                                    )
+                                    best_per_symbol[col_name][symbol] = best
+                                    worst_per_symbol[col_name][symbol] = worst
 
             symbol_idx = headers.get(symbol_col)
             if symbol_idx:
@@ -114,19 +127,29 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                             f"{get_column_letter(symbol_idx)}{row}"
                         ].value
                         best_val = best_per_symbol.get(col_name, {}).get(symbol)
-                        worst_val = worst_per_symbol.get(col_name, {}).get(
-                            symbol
-                        )  # New
+                        worst_val = worst_per_symbol.get(col_name, {}).get(symbol)
                         try:
-                            val = pd.to_numeric(cell.value, errors="coerce")
-                            if pd.notna(val):
-                                if best_val is not None and abs(val - best_val) < 1e-9:
-                                    cell.fill = lime_fill  # Best value
-                                elif (
-                                    worst_val is not None
-                                    and abs(val - worst_val) < 1e-9
-                                ):
-                                    cell.fill = red_fill  # Worst value
+                            if col_name == "Max. Drawdown Duration":
+                                # Handle as Timedelta
+                                td_val = pd.to_timedelta(cell.value, errors="coerce")
+                                if pd.notna(td_val):
+                                    if best_val is not None and td_val == best_val:
+                                        cell.fill = lime_fill  # Best (min) value
+                                    elif worst_val is not None and td_val == worst_val:
+                                        cell.fill = red_fill  # Worst (max) value
+                            else:
+                                val = pd.to_numeric(cell.value, errors="coerce")
+                                if pd.notna(val):
+                                    if (
+                                        best_val is not None
+                                        and abs(val - best_val) < 1e-9
+                                    ):
+                                        cell.fill = lime_fill  # Best value
+                                    elif (
+                                        worst_val is not None
+                                        and abs(val - worst_val) < 1e-9
+                                    ):
+                                        cell.fill = red_fill  # Worst value
                         except Exception:
                             continue
             else:
