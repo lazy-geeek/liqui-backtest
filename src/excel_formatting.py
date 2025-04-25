@@ -14,7 +14,7 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
     - Auto-sized columns
     - Frozen header row
     - Auto-filter
-    - Per-symbol best-value highlighting
+    - Per-symbol best-value and worst-value highlighting
 
     Args:
         dataframe: The DataFrame to save.
@@ -52,12 +52,15 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
             lime_fill = PatternFill(
                 start_color="CCFFCC", end_color="CCFFCC", fill_type="solid"
             )
+            red_fill = PatternFill(  # New: Light red fill
+                start_color="FFCCCC", end_color="FFCCCC", fill_type="solid"
+            )
             highlight_cols = {
                 "Equity Final [$]": "max",
                 "Commissions [$]": "min",
                 "Return [%]": "max",
                 "Return (Ann.) [%]": "max",
-                "Max. Drawdown [%]": "max",
+                "Max. Drawdown [%]": "max",  # Note: For drawdown, max is worst, but we'll handle via criteria
                 "Max. Drawdown Duration": "min",
                 "Win Rate [%]": "max",
                 "Sharpe Ratio": "max",
@@ -69,14 +72,16 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
             # Map header names to column indices
             headers = {cell.value: cell.column for cell in worksheet[1]}
 
-            # Compute best values per symbol
+            # Compute best and worst values per symbol
             best_per_symbol = {}
+            worst_per_symbol = {}  # New: For worst values
             symbol_col = "symbol"
             if symbol_col in dataframe.columns:
                 grouped = dataframe.groupby(symbol_col)
                 for col_name, criteria in highlight_cols.items():
                     if col_name in dataframe.columns:
                         best_per_symbol[col_name] = {}
+                        worst_per_symbol[col_name] = {}  # Initialize for worst
                         for symbol, group in grouped:
                             numeric = pd.to_numeric(
                                 group[col_name], errors="coerce"
@@ -87,12 +92,18 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                                     if criteria == "max"
                                     else numeric.min()
                                 )
+                                worst = (
+                                    numeric.min()
+                                    if criteria == "max"
+                                    else numeric.max()
+                                )  # Inverse of criteria
                                 best_per_symbol[col_name][symbol] = best
+                                worst_per_symbol[col_name][symbol] = worst
 
             symbol_idx = headers.get(symbol_col)
             if symbol_idx:
-                # Apply fill for matching best values
-                for col_name, criteria in highlight_cols.items():
+                # Apply fills for best and worst values
+                for col_name in highlight_cols:
                     if col_name not in headers:
                         continue
                     col_idx = headers[col_name]
@@ -103,14 +114,19 @@ def _save_dataframe_to_excel(dataframe: pd.DataFrame, excel_filename: str) -> No
                             f"{get_column_letter(symbol_idx)}{row}"
                         ].value
                         best_val = best_per_symbol.get(col_name, {}).get(symbol)
+                        worst_val = worst_per_symbol.get(col_name, {}).get(
+                            symbol
+                        )  # New
                         try:
                             val = pd.to_numeric(cell.value, errors="coerce")
-                            if (
-                                pd.notna(val)
-                                and best_val is not None
-                                and abs(val - best_val) < 1e-9
-                            ):
-                                cell.fill = lime_fill
+                            if pd.notna(val):
+                                if best_val is not None and abs(val - best_val) < 1e-9:
+                                    cell.fill = lime_fill  # Best value
+                                elif (
+                                    worst_val is not None
+                                    and abs(val - worst_val) < 1e-9
+                                ):
+                                    cell.fill = red_fill  # Worst value
                         except Exception:
                             continue
             else:
