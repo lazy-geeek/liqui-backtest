@@ -27,16 +27,13 @@ REQUESTED_STATS = [
 ]
 
 
-def _process_results_to_dataframe(
-    run_results: List[Dict[str, Any]], active_strategy: str
-) -> pd.DataFrame:
+def _process_results_to_dataframe(run_results: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Processes a list of run results into a structured Pandas DataFrame,
     dynamically including optimized parameters.
 
     Args:
         run_results: List of result dictionaries.
-        active_strategy: The name of the strategy being run.
 
     Returns:
         A Pandas DataFrame with the processed results.
@@ -59,9 +56,9 @@ def _process_results_to_dataframe(
         opt_stats = run_result.get("optimization_stats", {})
 
         flat_data = {
-            "strategy_name": config_data.get(
-                "active_strategy", active_strategy
-            ),  # Get strategy name from config if available
+            "strategy_name": run_result.get(
+                "strategy_name"
+            ),  # Get strategy name directly from the result dict
             "symbol": run_result.get("symbol"),
             "mode": run_result.get("mode"),
             "target_metric": run_result.get("target_metric"),
@@ -170,7 +167,7 @@ def generate_symbol_summary_excel(
         print(f"\nNo results for symbol {symbol} to save to Excel.")
         return
 
-    results_df = _process_results_to_dataframe(symbol_run_results, active_strategy)
+    results_df = _process_results_to_dataframe(symbol_run_results)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     # Save within the strategy folder
@@ -202,10 +199,7 @@ def save_summary_to_excel(
         return
 
     # _process_results_to_dataframe already handles extracting the individual target_metric from each run_result
-    results_df = _process_results_to_dataframe(
-        all_run_results,
-        active_strategy,
-    )
+    results_df = _process_results_to_dataframe(all_run_results)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     # Save in the main strategy directory
@@ -214,4 +208,37 @@ def save_summary_to_excel(
         output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
 
+    _save_dataframe_to_excel(results_df, excel_filename)
+
+
+def generate_overall_summary_excel(
+    all_strategies_results: List[Dict[str, Any]],
+) -> None:
+    """
+    Processes collected optimization results from ALL strategies and symbols
+    and saves them to a single consolidated Excel file in the 'strategies/' directory.
+
+    Args:
+        all_strategies_results: A list of dictionaries containing results
+                                 from all strategies and symbols.
+    """
+    if not all_strategies_results:
+        print("\nNo overall results to save to consolidated Excel.")
+        return
+
+    # The input list is already flat due to using extend in optimizer_run.py
+    # The _process_results_to_dataframe function handles different parameter sets
+    # The 'active_strategy' parameter here is less critical as the function
+    # primarily uses the 'strategy_name' already within each result dict.
+    # The _process_results_to_dataframe function handles different parameter sets
+    results_df = _process_results_to_dataframe(all_strategies_results)
+
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = "strategies"  # Relative path for the strategies directory
+    # Ensure the directory exists (handled within _save_dataframe_to_excel)
+    excel_filename = os.path.join(
+        output_dir, f"{timestamp_str}_overall_optimization_summary.xlsx"
+    )
+
+    print(f"Saving overall summary to: {excel_filename}")
     _save_dataframe_to_excel(results_df, excel_filename)

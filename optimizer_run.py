@@ -24,6 +24,7 @@ from src.optimizer_results import process_and_save_results
 from src.excel_summary import (
     generate_symbol_summary_excel,
     save_summary_to_excel,  # Import the consolidated summary function
+    generate_overall_summary_excel,  # Add this import
 )
 
 
@@ -169,6 +170,9 @@ if __name__ == "__main__":
         print("\nNo existing Excel files found in 'strategies/' subfolders.")
     print("-" * 30)
 
+    # Initialize list to store results from ALL strategies
+    all_strategies_results = []
+
     # --- Strategy Loop Start ---
     for current_strategy_name in tqdm(
         active_strategies, desc="Strategies", position=0, leave=True
@@ -296,6 +300,8 @@ if __name__ == "__main__":
                         target_metric=target_metric,
                     )
                     if result_data:
+                        # Add the strategy name explicitly to the result data
+                        result_data["strategy_name"] = current_strategy_name
                         symbol_strategy_results_for_excel.append(result_data)
                         strategy_all_symbols_results.append(
                             result_data
@@ -322,7 +328,20 @@ if __name__ == "__main__":
                 target_metrics_list,
             )
 
+        # --- Collect results for overall summary ---
+        if strategy_all_symbols_results:
+            all_strategies_results.extend(strategy_all_symbols_results)
+
     # --- Strategy Loop End ---
+
+    # --- Generate Overall Summary ---
+    if all_strategies_results:
+        print("\n--- Generating Overall Optimization Summary ---")
+        generate_overall_summary_excel(all_strategies_results)
+    else:
+        print(
+            "\nNo results collected across strategies to generate an overall summary."
+        )
 
     # No need to close tqdm iterators explicitly
 
