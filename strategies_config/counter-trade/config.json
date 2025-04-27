@@ -4,7 +4,9 @@
         "stop_loss_percentage": 3.0,
         "take_profit_percentage": 4.0,
         "exit_on_opposite_signal": false,
-        "cooldown_candles": 0
+        "cooldown_candles": 0,
+        "liquidation_aggregation_minutes": 5,
+        "average_lookback_period_days": 14
     },
     "optimization_ranges": {
         "average_liquidation_multiplier": {

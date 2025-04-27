@@ -210,8 +210,8 @@ def prepare_data(
     timeframe: str,
     start_dt: datetime,
     end_dt: datetime,
-    liquidation_aggregation_minutes: int = 5,
-    average_lookback_period_days: int = 7,
+    liquidation_aggregation_minutes: int,
+    average_lookback_period_days: int,
 ) -> pd.DataFrame:
     """
     Fetches OHLCV and liquidation data, then merges them.

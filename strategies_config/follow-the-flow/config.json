@@ -3,7 +3,9 @@
         "average_liquidation_multiplier": 4.0,
         "stop_loss_percentage": 1.0,
         "take_profit_percentage": 2.0,
-        "exit_on_opposite_signal": false
+        "exit_on_opposite_signal": false,
+        "liquidation_aggregation_minutes": 5,
+        "average_lookback_period_days": 14
     },
     "optimization_ranges": {
         "average_liquidation_multiplier": {

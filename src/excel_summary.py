@@ -9,14 +9,25 @@ from src.excel_processing import _process_results_to_dataframe
 from src.excel_formatting import _save_dataframe_to_excel
 
 
-def _get_backtest_params_from_config() -> Dict[str, Any]:
-    """Extract backtest and optimization parameters from config.json.
+def _get_backtest_params_from_config(active_strategy: str) -> Dict[str, Any]:
+    """Extract backtest and optimization parameters from main config and strategy config.
+
+    Args:
+        active_strategy: Name of the strategy to load strategy-specific params.
 
     Returns:
-        Dictionary containing all relevant parameters from config.json
+        Dictionary containing all relevant parameters for Excel summaries.
     """
+    # Load main config
     with open("config.json") as f:
         config = json.load(f)
+    # Load strategy-specific config
+    strategy_config_path = os.path.join(
+        "strategies_config", active_strategy, "config.json"
+    )
+    with open(strategy_config_path) as sf:
+        strategy_cfg = json.load(sf)
+    strat_params = strategy_cfg.get("strategy_parameters", {})
 
     return {
         "timeframe": config["backtest_settings"]["timeframe"],
@@ -29,15 +40,38 @@ def _get_backtest_params_from_config() -> Dict[str, Any]:
         ],
         "position_size_fraction": config["backtest_settings"]["position_size_fraction"],
         "leverage": config["backtest_settings"]["leverage"],
-        "liquidation_aggregation_minutes": config["backtest_settings"][
-            "liquidation_aggregation_minutes"
-        ],
-        "average_lookback_period_days": config["backtest_settings"][
-            "average_lookback_period_days"
-        ],
+        "liquidation_aggregation_minutes": strat_params.get(
+            "liquidation_aggregation_minutes", None
+        ),
+        "average_lookback_period_days": strat_params.get(
+            "average_lookback_period_days", None
+        ),
         "optimize_exit_signal_if_modus_both": config["optimization_settings"][
             "optimize_exit_signal_if_modus_both"
         ],
+    }
+
+
+def _get_global_backtest_params_from_config() -> Dict[str, Any]:
+    """Extract only global backtest and optimization parameters from main config."""
+    with open("config.json") as f:
+        config = json.load(f)
+    bt = config.get("backtest_settings", {})
+    opt = config.get("optimization_settings", {})
+
+    return {
+        "timeframe": bt.get("timeframe"),
+        "start_date_iso": bt.get("start_date_iso"),
+        "end_date_iso": bt.get("end_date_iso"),
+        "initial_cash": bt.get("initial_cash"),
+        "commission_percentage": bt.get("commission_percentage"),
+        "slippage_percentage_per_side": bt.get("slippage_percentage_per_side"),
+        "position_size_fraction": bt.get("position_size_fraction"),
+        "leverage": bt.get("leverage"),
+        "optimize_exit_signal_if_modus_both": opt.get(
+            "optimize_exit_signal_if_modus_both"
+        ),
+        "target_metrics": opt.get("target_metrics"),
     }
 
 
@@ -68,7 +102,7 @@ def generate_symbol_summary_excel(
         f"{symbol}_{timestamp_str}.xlsx",
     )
 
-    params = _get_backtest_params_from_config()
+    params = _get_backtest_params_from_config(active_strategy)
 
     _save_dataframe_to_excel(results_df, excel_filename, params)
 
@@ -98,7 +132,7 @@ def save_summary_to_excel(
     excel_filename = os.path.join(
         output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
-    params = _get_backtest_params_from_config()
+    params = _get_backtest_params_from_config(active_strategy)
 
     _save_dataframe_to_excel(results_df, excel_filename, params)
 
@@ -136,6 +170,6 @@ def generate_overall_summary_excel(
     )
 
     print(f"Saving overall summary to: {excel_filename}")
-    params = _get_backtest_params_from_config()
+    params = _get_global_backtest_params_from_config()
 
     _save_dataframe_to_excel(results_df, excel_filename, params)

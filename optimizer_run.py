@@ -154,10 +154,6 @@ if __name__ == "__main__":
     initial_cash = backtest_settings["initial_cash"]
     commission_pct = backtest_settings["commission_pct"]
     leverage = backtest_settings["leverage"]
-    liquidation_aggregation_minutes = backtest_settings[
-        "liquidation_aggregation_minutes"
-    ]
-    average_lookback_period_days = backtest_settings["average_lookback_period_days"]
     modus_list = backtest_settings["modus"]  # Read the list of modes
     target_metrics_list = backtest_settings["target_metrics"]
     slippage_percentage_per_side = backtest_settings[
@@ -187,8 +183,6 @@ if __name__ == "__main__":
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
-    print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
-    print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
     print(f"Modes to process: {', '.join(modus_list)}")  # Updated print statement
     print(f"Slippage Per Side: {slippage_percentage_per_side:.4f}%")  # Print slippage
     print(
@@ -230,6 +224,14 @@ if __name__ == "__main__":
 
         # Load strategy config ONCE per strategy
         strategy_config = load_strategy_config(current_strategy_name)
+        # Load strategy-specific liquidation parameters
+        liq_params = strategy_config.get("strategy_parameters", {})
+        liquidation_aggregation_minutes = liq_params.get(
+            "liquidation_aggregation_minutes", 5
+        )
+        average_lookback_period_days = liq_params.get(
+            "average_lookback_period_days", 14
+        )
 
         # Dynamically import the strategy class ONCE per strategy
         strategy_module_path = f"src.strategies.{current_strategy_name}.strategy"
