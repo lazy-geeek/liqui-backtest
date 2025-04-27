@@ -38,7 +38,9 @@ def load_all_configs(config_file: str = "config.json") -> Dict[str, Any]:
 
 def load_strategy_config(strategy_name: str) -> Dict[str, Any]:
     """Load the configuration for a specific strategy."""
-    strategy_config_path = os.path.join("strategies", strategy_name, "config.json")
+    strategy_config_path = os.path.join(
+        "strategies_config", strategy_name, "config.json"
+    )
     if not os.path.exists(strategy_config_path):
         print(f"Error: Strategy config not found at {strategy_config_path}")
         sys.exit(1)

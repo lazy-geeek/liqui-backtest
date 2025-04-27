@@ -187,10 +187,10 @@ if __name__ == "__main__":
     print("-" * 30)
 
     # --- Delete existing Excel files ---
-    excel_files = glob.glob("strategies/**/*.xlsx", recursive=True)
+    excel_files = glob.glob("strategies_config/**/*.xlsx", recursive=True)
     if excel_files:
         user_input = input(
-            "Found existing Excel files in 'strategies/' subfolders. Delete them? (y/n): "
+            "Found existing Excel files in 'strategies_config/' subfolders. Delete them? (y/n): "
         ).lower()
 
         if user_input == "y":
@@ -204,7 +204,7 @@ if __name__ == "__main__":
         else:
             print("Deletion cancelled by user.")
     else:
-        print("\nNo existing Excel files found in 'strategies/' subfolders.")
+        print("\nNo existing Excel files found in 'strategies_config/' subfolders.")
     print("-" * 30)
 
     # Initialize list to store results from ALL strategies

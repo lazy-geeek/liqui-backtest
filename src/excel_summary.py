@@ -62,7 +62,7 @@ def generate_symbol_summary_excel(
     results_df = _process_results_to_dataframe(symbol_run_results)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = os.path.join("strategies", active_strategy)
+    output_dir = os.path.join("strategies_config", active_strategy)
     excel_filename = os.path.join(
         output_dir,
         f"{symbol}_{timestamp_str}.xlsx",
@@ -94,7 +94,7 @@ def save_summary_to_excel(
     results_df = _process_results_to_dataframe(all_run_results)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = os.path.join("strategies", active_strategy)
+    output_dir = os.path.join("strategies_config", active_strategy)
     excel_filename = os.path.join(
         output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
     )
@@ -108,7 +108,7 @@ def generate_overall_summary_excel(
 ) -> None:
     """
     Processes collected optimization results from ALL strategies and symbols
-    and saves them to a single consolidated Excel file in the 'strategies/' directory.
+    and saves them to a single consolidated Excel file in the 'strategies_config/' directory.
 
     Args:
         all_strategies_results: A list of dictionaries containing results
@@ -130,7 +130,7 @@ def generate_overall_summary_excel(
         print("WARNING: Could not sort overall summary. 'symbol' column not found.")
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = "strategies"
+    output_dir = "strategies_config"
     excel_filename = os.path.join(
         output_dir, f"{timestamp_str}_overall_optimization_summary.xlsx"
     )
