@@ -93,4 +93,10 @@ def get_backtest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
         "target_metrics": config.get("optimization_settings", {}).get(
             "target_metrics", ["Sharpe Ratio"]
         ),
+        "slippage_percentage_per_side": backtest_settings.get(
+            "slippage_percentage_per_side", 0.0
+        ),  # Default to 0 if missing
+        "position_size_fraction": backtest_settings.get(
+            "position_size_fraction", 0.1
+        ),  # Default to 0.1 if missing
     }

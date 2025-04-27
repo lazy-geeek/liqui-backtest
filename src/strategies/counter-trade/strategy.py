@@ -16,8 +16,8 @@ class CounterTradeStrategy(Strategy):
     stop_loss_percentage = 1.0
     take_profit_percentage = 2.0
     exit_on_opposite_signal = False
-    slippage_percentage_per_side = 0.05
-    position_size_fraction = 0.01
+    slippage_pct = 0.0005  # Default slippage (0.05%) as decimal, will be overridden
+    pos_size_frac = 0.01  # Default position size fraction, will be overridden
     debug_mode = False
     modus = "both"
     cooldown_candles = 0  # Number of candles to wait after signal before trading
@@ -46,8 +46,12 @@ class CounterTradeStrategy(Strategy):
         self.avg_sell_liq = self.data.Avg_Liq_Sell
 
         # Convert slippage percentage to decimal for calculations
-        self.entry_slippage = self.slippage_percentage_per_side / 100.0
-        self.exit_slippage = self.slippage_percentage_per_side / 100.0
+        self.entry_slippage = (
+            self.slippage_pct
+        )  # Already a decimal from optimizer_run.py
+        self.exit_slippage = (
+            self.slippage_pct
+        )  # Already a decimal from optimizer_run.py
 
     def next(self):
         """
@@ -82,7 +86,7 @@ class CounterTradeStrategy(Strategy):
                 ):
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+                    size_fraction = self.pos_size_frac  # Use the passed-in value
                     if self.debug_mode:
                         print(
                             f"DEBUG: Executing BUY after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
@@ -95,7 +99,7 @@ class CounterTradeStrategy(Strategy):
                 ):
                     sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+                    size_fraction = self.pos_size_frac  # Use the passed-in value
                     if self.debug_mode:
                         print(
                             f"DEBUG: Executing SELL after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"

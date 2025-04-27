@@ -80,12 +80,13 @@ def process_and_save_results(
             if isinstance(v, (np.generic, np.ndarray)):
                 best_params_dict[k] = v.item()
 
-        best_params_dict["slippage_percentage_per_side"] = param_grid[
-            "slippage_percentage_per_side"
-        ]
-        best_params_dict["position_size_fraction"] = param_grid[
-            "position_size_fraction"
-        ]
+        # Add the fixed slippage (as decimal) and position size from the grid
+        best_params_dict["slippage_pct"] = param_grid.get(
+            "slippage_pct", 0.0
+        )  # Use .get for safety
+        best_params_dict["pos_size_frac"] = param_grid.get(
+            "pos_size_frac", 0.01
+        )  # Use .get for safety
     else:
         print("Could not extract best parameters from strategy object.")
 

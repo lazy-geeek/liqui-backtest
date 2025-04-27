@@ -16,8 +16,8 @@ class FollowTheFlowStrategy(Strategy):
     average_liquidation_multiplier = 4.0
     stop_loss_percentage = 1.0
     take_profit_percentage = 2.0
-    slippage_percentage_per_side = 0.05
-    position_size_fraction = 0.01
+    slippage_pct = 0.0005  # Default slippage (0.05%) as decimal, will be overridden
+    pos_size_frac = 0.01  # Default position size fraction, will be overridden
     debug_mode = False
     modus = "both"  # 'buy', 'sell', or 'both'
     exit_on_opposite_signal = False  # Required for optimization compatibility
@@ -27,6 +27,7 @@ class FollowTheFlowStrategy(Strategy):
         Initialize the strategy. Precompute indicators or series here if needed.
         """
         super().init()
+
         self.logger = logging.getLogger(__name__)
 
         # Make liquidation data easily accessible
@@ -42,8 +43,12 @@ class FollowTheFlowStrategy(Strategy):
         self.avg_sell_liq = self.data.Avg_Liq_Sell
 
         # Convert slippage percentage to decimal for calculations
-        self.entry_slippage = self.slippage_percentage_per_side / 100.0
-        self.exit_slippage = self.slippage_percentage_per_side / 100.0
+        self.entry_slippage = (
+            self.slippage_pct
+        )  # Already a decimal from optimizer_run.py
+        self.exit_slippage = (
+            self.slippage_pct
+        )  # Already a decimal from optimizer_run.py
 
         if self.debug_mode:
             self.logger.info(
@@ -53,6 +58,8 @@ class FollowTheFlowStrategy(Strategy):
                     "stop_loss_percentage": self.stop_loss_percentage,
                     "take_profit_percentage": self.take_profit_percentage,
                     "modus": self.modus,
+                    "slippage_pct": self.slippage_pct,
+                    "pos_size_frac": self.pos_size_frac,
                     "exit_on_opposite_signal": self.exit_on_opposite_signal,
                 },
             )
@@ -82,7 +89,7 @@ class FollowTheFlowStrategy(Strategy):
                 if buy_signal and (self.modus == "buy" or self.modus == "both"):
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+                    size_fraction = self.pos_size_frac  # Use the passed-in value
                     if self.debug_mode:
                         self.logger.info(
                             f"Executing BUY | Price: {current_price:.4f} | "
@@ -94,7 +101,7 @@ class FollowTheFlowStrategy(Strategy):
                 elif sell_signal and (self.modus == "sell" or self.modus == "both"):
                     sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                    size_fraction = self.position_size_fraction
+                    size_fraction = self.pos_size_frac  # Use the passed-in value
                     if self.debug_mode:
                         self.logger.info(
                             f"Executing SELL | Price: {current_price:.4f} | "

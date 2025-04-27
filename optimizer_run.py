@@ -160,6 +160,12 @@ if __name__ == "__main__":
     average_lookback_period_days = backtest_settings["average_lookback_period_days"]
     modus_list = backtest_settings["modus"]  # Read the list of modes
     target_metrics_list = backtest_settings["target_metrics"]
+    slippage_percentage_per_side = backtest_settings[
+        "slippage_percentage_per_side"
+    ]  # Extract slippage
+    position_size_fraction = backtest_settings[
+        "position_size_fraction"
+    ]  # Extract position size
 
     # Calculate margin
     try:
@@ -184,6 +190,10 @@ if __name__ == "__main__":
     print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
     print(f"Average Liquidation Lookback Period: {average_lookback_period_days} days")
     print(f"Modes to process: {', '.join(modus_list)}")  # Updated print statement
+    print(f"Slippage Per Side: {slippage_percentage_per_side:.4f}%")  # Print slippage
+    print(
+        f"Position Size Fraction: {position_size_fraction:.4f}"
+    )  # Print position size
     print("-" * 30)
 
     # --- Delete existing Excel files ---
@@ -244,7 +254,9 @@ if __name__ == "__main__":
             continue  # Skip to the next strategy
 
         # Build parameter grid ONCE per strategy
-        param_grid = build_param_grid(strategy_config)
+        param_grid = build_param_grid(
+            strategy_config, backtest_settings
+        )  # Pass main backtest settings
         total_combinations = calculate_total_combinations(
             param_grid
         )  # Maybe log this per strategy?
