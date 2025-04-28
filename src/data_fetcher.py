@@ -203,7 +203,3 @@ def fetch_liquidations(
     except Exception as e:
         print(f"An unexpected error occurred during liquidation fetch: {e}")
         return pd.DataFrame()
-
-
-# prepare_data function removed as per refactoring plan.
-# Strategy-specific preparation is now handled in src/strategies/<strategy_name>/data_preparation.py

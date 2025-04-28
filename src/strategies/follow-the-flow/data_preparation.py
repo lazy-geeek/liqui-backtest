@@ -4,27 +4,29 @@ from datetime import datetime, timedelta
 
 
 def prepare_strategy_data(
-    ohlcv_df: pd.DataFrame,
-    liq_df: pd.DataFrame,
+    fetch_ohlcv_func,  # Added: Function to fetch OHLCV
+    fetch_liquidations_func,  # Added: Function to fetch liquidations
     strategy_params: dict,
+    symbol: str,  # Added: Symbol needed for fetching
+    timeframe: str,  # Added: Timeframe needed for fetching
     start_dt: datetime,
     end_dt: datetime,
-    timeframe: str,
 ) -> pd.DataFrame:
     """
-    Prepares data specifically for the FollowTheFlow strategy by merging
-    OHLCV and liquidation data, calculating aggregated and average liquidations.
+    Prepares data specifically for the FollowTheFlow strategy.
+    Determines required data range, fetches raw data using provided functions,
+    then merges and calculates aggregated/average liquidations.
 
     Args:
-        ohlcv_df: DataFrame with OHLCV data. Must cover the period from
-                  start_dt - average_lookback_period_days to end_dt.
-        liq_df: DataFrame with raw liquidation data. Must cover the same period.
+        fetch_ohlcv_func: Function to fetch OHLCV data.
+        fetch_liquidations_func: Function to fetch liquidation data.
         strategy_params: Dictionary containing strategy-specific parameters like:
             - liquidation_aggregation_minutes (int): Aggregation window.
             - average_lookback_period_days (int): Lookback for average calculation.
+        symbol: Trading symbol (e.g., 'SUIUSDT').
+        timeframe: Timeframe string (e.g., '1m', '5m').
         start_dt: The original start datetime for the backtest period.
         end_dt: The original end datetime for the backtest period.
-        timeframe: The timeframe string (e.g., '1m', '5m').
 
     Returns:
         Pandas DataFrame ready for the backtesting engine, filtered to the
@@ -32,13 +34,21 @@ def prepare_strategy_data(
     """
     liquidation_aggregation_minutes = strategy_params.get(
         "liquidation_aggregation_minutes", 5
-    )  # Default if not provided
+    )
     average_lookback_period_days = strategy_params.get(
         "average_lookback_period_days", 14
-    )  # Default if not provided
+    )
 
+    # Calculate the required fetch start date based on strategy parameters
+    fetch_start_dt = start_dt - timedelta(days=average_lookback_period_days)
+
+    # Fetch raw data using the provided functions
+    ohlcv_df = fetch_ohlcv_func(symbol, timeframe, fetch_start_dt, end_dt)
+    liq_df = fetch_liquidations_func(symbol, timeframe, fetch_start_dt, end_dt)
+
+    # --- Start of original preparation logic ---
     if ohlcv_df.empty:
-        print("OHLCV data is empty, cannot proceed with merge.")
+        print("OHLCV data is empty, cannot proceed.")
         return pd.DataFrame()
 
     if liq_df.empty:

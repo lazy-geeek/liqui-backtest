@@ -227,12 +227,7 @@ if __name__ == "__main__":
         strategy_config = load_strategy_config(current_strategy_name)
         # Load strategy-specific liquidation parameters
         liq_params = strategy_config.get("strategy_parameters", {})
-        liquidation_aggregation_minutes = liq_params.get(
-            "liquidation_aggregation_minutes", 5
-        )
-        average_lookback_period_days = liq_params.get(
-            "average_lookback_period_days", 14
-        )
+        # Removed standalone variables liquidation_aggregation_minutes and average_lookback_period_days
 
         # Dynamically import the strategy class ONCE per strategy
         strategy_module_path = f"src.strategies.{current_strategy_name}.strategy"
@@ -268,25 +263,14 @@ if __name__ == "__main__":
         for symbol in tqdm(
             symbols, desc=f"Symbols ({current_strategy_name})", position=1, leave=False
         ):
-            # 4. Fetch and prepare data for the current symbol
-            # Calculate the extended start date needed for lookback calculation
-            fetch_start_dt = start_date - timedelta(days=average_lookback_period_days)
-
-            # Fetch raw data using the extended date range
-            ohlcv_df = data_fetcher.fetch_ohlcv(
-                symbol, timeframe, fetch_start_dt, end_date
-            )
-            liq_df = data_fetcher.fetch_liquidations(
-                symbol, timeframe, fetch_start_dt, end_date
-            )
-
+            # 4. Prepare data for the current symbol using the strategy's specific logic
             # Dynamically import the strategy-specific preparation function
             prepare_data_module_path = (
                 f"src.strategies.{current_strategy_name}.data_preparation"
             )
             try:
                 prepare_data_module = importlib.import_module(prepare_data_module_path)
-                prepare_strategy_data = getattr(
+                prepare_strategy_data_func = getattr(
                     prepare_data_module, "prepare_strategy_data"
                 )
             except (ModuleNotFoundError, AttributeError) as e:
@@ -296,15 +280,23 @@ if __name__ == "__main__":
                 print(f"Skipping symbol {symbol} for strategy {current_strategy_name}.")
                 continue  # Skip to next symbol
 
-            # Prepare data using the strategy-specific function
-            data = prepare_strategy_data(
-                ohlcv_df=ohlcv_df,
-                liq_df=liq_df,
-                strategy_params=liq_params,  # Pass the loaded strategy params
-                start_dt=start_date,  # Original start date for final filtering
-                end_dt=end_date,  # Original end date for final filtering
-                timeframe=timeframe,
-            )
+            # Prepare data using the strategy-specific function, passing fetchers
+            try:
+                data = prepare_strategy_data_func(
+                    fetch_ohlcv_func=data_fetcher.fetch_ohlcv,  # Pass fetcher
+                    fetch_liquidations_func=data_fetcher.fetch_liquidations,  # Pass fetcher
+                    strategy_params=liq_params,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    start_dt=start_date,
+                    end_dt=end_date,
+                )
+            except Exception as e:
+                print(
+                    f"\nError during data preparation for {symbol} in {current_strategy_name}: {e}"
+                )
+                print("Skipping symbol.")
+                continue  # Skip to next symbol
 
             if data.empty:
                 print(
