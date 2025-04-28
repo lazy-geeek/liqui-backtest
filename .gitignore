@@ -190,4 +190,5 @@ optimization_best_params.json
 .clineignore
 *.xlsx
 **/config *.json
+memory-bank/
 
