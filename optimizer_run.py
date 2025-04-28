@@ -17,7 +17,8 @@ import glob
 def check_dependencies():
     """Check if all dependencies from requirements.txt are installed and print status."""
     import_mappings = {
-        "python-dotenv": "dotenv"
+        "python-dotenv": "dotenv",
+        "dynaconf[toml]": "dynaconf",
     }  # Mapping for packages with different import names
     try:
         with open("requirements.txt", "r") as f:
@@ -139,9 +140,9 @@ if __name__ == "__main__":
     check_dependencies()
     print("--- Starting Parameter Optimization ---")
 
-    # 1. Load all configurations
-    configs = load_all_configs("config.json")
-    config = configs["main_config"]
+    # 1. Load all configurations using Dynaconf (no filename needed)
+    configs = load_all_configs()
+    config = configs["main_settings"]  # Key was changed in optimizer_config.py
     active_strategies = configs[
         "active_strategies"
     ]  # Get the list of active strategies

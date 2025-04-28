@@ -9,3 +9,5 @@ termcolor
 tqdm
 python-dotenv
 openpyxl
+
+dynaconf[toml]

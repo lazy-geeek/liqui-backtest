@@ -1,16 +1,20 @@
 """Orchestrator for generating optimization summary Excel files."""
 
 import os
-import json
+
+# import json # No longer needed
 from datetime import datetime
 from typing import List, Dict, Any
 
 from src.excel_processing import _process_results_to_dataframe
 from src.excel_formatting import _save_dataframe_to_excel
 
+# Import Dynaconf settings and loader from optimizer_config
+from src.optimizer_config import settings, load_strategy_config
+
 
 def _get_backtest_params_from_config(active_strategy: str) -> Dict[str, Any]:
-    """Extract backtest and optimization parameters from main config and strategy config.
+    """Extract backtest and optimization parameters using Dynaconf settings.
 
     Args:
         active_strategy: Name of the strategy to load strategy-specific params.
@@ -18,46 +22,40 @@ def _get_backtest_params_from_config(active_strategy: str) -> Dict[str, Any]:
     Returns:
         Dictionary containing all relevant parameters for Excel summaries.
     """
-    # Load main config
-    with open("config.json") as f:
-        config = json.load(f)
-    # Load strategy-specific config
-    strategy_config_path = os.path.join(
-        "strategies_config", active_strategy, "config.json"
-    )
-    with open(strategy_config_path) as sf:
-        strategy_cfg = json.load(sf)
-    strat_params = strategy_cfg.get("strategy_parameters", {})
+    # Load strategy-specific settings
+    strategy_settings = load_strategy_config(active_strategy)
+    # Access global settings via the imported 'settings' object
+    bt_settings = settings.get("backtest_settings", {})
+    opt_settings = settings.get("optimization_settings", {})
+    strat_params = strategy_settings.get("strategy_parameters", {})
 
     return {
-        "timeframe": config["backtest_settings"]["timeframe"],
-        "start_date_iso": config["backtest_settings"]["start_date_iso"],
-        "end_date_iso": config["backtest_settings"]["end_date_iso"],
-        "initial_cash": config["backtest_settings"]["initial_cash"],
-        "commission_percentage": config["backtest_settings"]["commission_percentage"],
-        "slippage_percentage_per_side": config["backtest_settings"][
-            "slippage_percentage_per_side"
-        ],
-        "position_size_fraction": config["backtest_settings"]["position_size_fraction"],
-        "leverage": config["backtest_settings"]["leverage"],
+        "timeframe": bt_settings.get("timeframe"),
+        "start_date_iso": bt_settings.get("start_date_iso"),
+        "end_date_iso": bt_settings.get("end_date_iso"),
+        "initial_cash": bt_settings.get("initial_cash"),
+        "commission_percentage": bt_settings.get("commission_percentage"),
+        "slippage_percentage_per_side": bt_settings.get("slippage_percentage_per_side"),
+        "position_size_fraction": bt_settings.get("position_size_fraction"),
+        "leverage": bt_settings.get("leverage"),
         "liquidation_aggregation_minutes": strat_params.get(
-            "liquidation_aggregation_minutes", None
+            "liquidation_aggregation_minutes"  # Removed default None, rely on config or Dynaconf default
         ),
         "average_lookback_period_days": strat_params.get(
-            "average_lookback_period_days", None
+            "average_lookback_period_days"  # Removed default None
         ),
-        "optimize_exit_signal_if_modus_both": config["optimization_settings"][
+        "optimize_exit_signal_if_modus_both": opt_settings.get(
             "optimize_exit_signal_if_modus_both"
-        ],
+        ),
+        # Note: Target metrics are global, not per-strategy for this function's purpose
     }
 
 
 def _get_global_backtest_params_from_config() -> Dict[str, Any]:
-    """Extract only global backtest and optimization parameters from main config."""
-    with open("config.json") as f:
-        config = json.load(f)
-    bt = config.get("backtest_settings", {})
-    opt = config.get("optimization_settings", {})
+    """Extract only global backtest and optimization parameters using Dynaconf."""
+    # Access global settings via the imported 'settings' object
+    bt = settings.get("backtest_settings", {})
+    opt = settings.get("optimization_settings", {})
 
     return {
         "timeframe": bt.get("timeframe"),
