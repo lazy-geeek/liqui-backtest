@@ -8,14 +8,14 @@ from dynaconf import Dynaconf, Validator
 
 # Initialize Dynaconf globally
 # It will load settings from settings.toml and .secrets.toml (if exists)
-# It also supports environment variables prefixed with LIQUI_
+# It also supports environment variables prefixed with BT_
 # and loading .env files
 settings = Dynaconf(
-    envvar_prefix="LIQUI",
+    envvar_prefix="BT",
     settings_files=["settings.toml", ".secrets.toml"],
     environments=True,  # Enable environment support (e.g., [default], [production])
     load_dotenv=True,  # Load .env file if present
-    env_switcher="LIQUI_ENV",  # Environment variable to switch env (e.g., LIQUI_ENV=production)
+    env_switcher="BT_ENV",  # Environment variable to switch env (e.g., BT_ENV=production)
     default_env="default",  # Explicitly set the default environment
 )
 
@@ -62,7 +62,7 @@ def load_strategy_config(strategy_name: str) -> Dynaconf:
     # Create a specific Dynaconf instance for this strategy file
     # This keeps strategy settings separate from global settings
     strategy_settings = Dynaconf(
-        envvar_prefix=f"LIQUI_{strategy_name.upper()}",  # Optional: Strategy-specific env var prefix
+        envvar_prefix=f"BT_{strategy_name.upper()}",  # Optional: Strategy-specific env var prefix
         settings_files=[strategy_config_path],
         environments=True,  # Maintain environment awareness if needed
         default_env="default",
