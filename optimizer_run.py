@@ -4,6 +4,7 @@ import warnings
 import time
 import importlib
 from tqdm import tqdm
+from datetime import timedelta  # <-- Add this import
 
 from typing import Dict, Tuple, Optional, Any
 from backtesting import Backtest
@@ -267,19 +268,47 @@ if __name__ == "__main__":
         for symbol in tqdm(
             symbols, desc=f"Symbols ({current_strategy_name})", position=1, leave=False
         ):
-            # 4. Fetch and prepare data for the current symbol (once per symbol)
-            data = data_fetcher.prepare_data(
-                symbol,
-                timeframe,
-                start_date,
-                end_date,
-                liquidation_aggregation_minutes=liquidation_aggregation_minutes,
-                average_lookback_period_days=average_lookback_period_days,
+            # 4. Fetch and prepare data for the current symbol
+            # Calculate the extended start date needed for lookback calculation
+            fetch_start_dt = start_date - timedelta(days=average_lookback_period_days)
+
+            # Fetch raw data using the extended date range
+            ohlcv_df = data_fetcher.fetch_ohlcv(
+                symbol, timeframe, fetch_start_dt, end_date
+            )
+            liq_df = data_fetcher.fetch_liquidations(
+                symbol, timeframe, fetch_start_dt, end_date
+            )
+
+            # Dynamically import the strategy-specific preparation function
+            prepare_data_module_path = (
+                f"src.strategies.{current_strategy_name}.data_preparation"
+            )
+            try:
+                prepare_data_module = importlib.import_module(prepare_data_module_path)
+                prepare_strategy_data = getattr(
+                    prepare_data_module, "prepare_strategy_data"
+                )
+            except (ModuleNotFoundError, AttributeError) as e:
+                print(
+                    f"\nError importing data preparation function from {prepare_data_module_path}: {e}"
+                )
+                print(f"Skipping symbol {symbol} for strategy {current_strategy_name}.")
+                continue  # Skip to next symbol
+
+            # Prepare data using the strategy-specific function
+            data = prepare_strategy_data(
+                ohlcv_df=ohlcv_df,
+                liq_df=liq_df,
+                strategy_params=liq_params,  # Pass the loaded strategy params
+                start_dt=start_date,  # Original start date for final filtering
+                end_dt=end_date,  # Original end date for final filtering
+                timeframe=timeframe,
             )
 
             if data.empty:
                 print(
-                    f"\nNo data for {symbol} in {current_strategy_name}. Skipping symbol."
+                    f"\nData preparation failed or resulted in empty DataFrame for {symbol} in {current_strategy_name}. Skipping symbol."
                 )
                 continue  # Skip to the next symbol
 
