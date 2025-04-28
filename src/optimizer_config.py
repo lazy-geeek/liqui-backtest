@@ -5,6 +5,7 @@ from datetime import datetime
 import sys
 from typing import Dict, Any
 from dynaconf import Dynaconf, Validator
+from pprint import pprint
 
 # Initialize Dynaconf globally
 # It will load settings from settings.toml and .secrets.toml (if exists)
@@ -12,7 +13,7 @@ from dynaconf import Dynaconf, Validator
 # and loading .env files
 settings = Dynaconf(
     envvar_prefix="BT",
-    settings_files=["settings.toml", ".secrets.toml"],
+    settings_files=["settings.toml"],
     environments=True,  # Enable environment support (e.g., [default], [production])
     load_dotenv=True,  # Load .env file if present
     env_switcher="BT_ENV",  # Environment variable to switch env (e.g., BT_ENV=production)

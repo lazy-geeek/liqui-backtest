@@ -15,16 +15,49 @@ end = 4.0
 step = 1.0
 
 [default.optimization_ranges.stop_loss_percentage]
-start = 1.0 # Note: JSON had integer 1, converting to float for consistency with step
-end = 2.0   # Note: JSON had integer 2, converting to float for consistency with step
-step = 1.0  # Note: JSON had integer 1, converting to float
+start = 1.0
+end = 2.0
+step = 1.0
 
 [default.optimization_ranges.take_profit_percentage]
-start = 1.0 # Note: JSON had integer 1, converting to float for consistency with step
-end = 4.0   # Note: JSON had integer 4, converting to float for consistency with step
-step = 1.0  # Note: JSON had integer 1, converting to float
+start = 1.0
+end = 4.0
+step = 1.0
 
 [default.optimization_ranges.cooldown_candles]
+start = 0
+end = 2
+step = 1
+
+########################## Dev Settings ##########################
+
+[dev.strategy_parameters]
+average_liquidation_multiplier = 4.0
+stop_loss_percentage = 3.0
+take_profit_percentage = 4.0
+exit_on_opposite_signal = false
+cooldown_candles = 0
+liquidation_aggregation_minutes = 5
+average_lookback_period_days = 14
+
+[dev.optimization_ranges]
+
+[dev.optimization_ranges.average_liquidation_multiplier]
+start = 2.0
+end = 4.0
+step = 1.0
+
+[dev.optimization_ranges.stop_loss_percentage]
+start = 1.0
+end = 2.0
+step = 1.0
+
+[dev.optimization_ranges.take_profit_percentage]
+start = 1.0
+end = 4.0
+step = 1.0
+
+[dev.optimization_ranges.cooldown_candles]
 start = 0
 end = 2
 step = 1
