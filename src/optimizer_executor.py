@@ -88,7 +88,7 @@ def execute_optimization_loops(
     start_date = backtest_settings["start_date"]
     end_date = backtest_settings["end_date"]
     initial_cash = backtest_settings["initial_cash"]
-    commission_pct = backtest_settings["commission_pct"]
+    commission_pct = backtest_settings["commission_percentage"]
     leverage = backtest_settings["leverage"]
     slippage_percentage_per_side = backtest_settings["slippage_percentage_per_side"]
     position_size_fraction = backtest_settings["position_size_fraction"]

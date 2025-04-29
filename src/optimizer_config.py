@@ -149,9 +149,7 @@ def get_backtest_settings(main_settings: Dynaconf) -> Dict[str, Any]:
         "start_date": start_date,
         "end_date": end_date,
         "initial_cash": bt_settings.get("initial_cash", 10000),
-        "commission_pct": bt_settings.get(
-            "commission_percentage", 0.04
-        ),  # Keep original key name
+        "commission_percentage": bt_settings.get("commission_percentage", 0.04),
         "leverage": bt_settings.get("leverage", 1),
         "modus": backtest_modus,  # Return single modus
         "target_metrics": target_metrics,  # Still from optimization settings
