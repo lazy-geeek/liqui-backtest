@@ -7,7 +7,9 @@ import operator
 
 
 def build_param_grid(
-    strategy_config: Dict[str, Any], main_backtest_settings: Dict[str, Any]
+    strategy_config: Dict[str, Any],
+    main_backtest_settings: Dict[str, Any],
+    main_optimization_settings: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Builds the parameter grid for optimization from config.
@@ -15,6 +17,7 @@ def build_param_grid(
     Args:
         strategy_config: The configuration specific to the strategy being optimized.
         main_backtest_settings: The general backtest settings from the main config.
+        main_optimization_settings: The optimization settings from the main config.
 
     Returns:
         A dictionary representing the parameter grid for backtesting.py optimize method.
@@ -112,8 +115,8 @@ def build_param_grid(
 
     # Handle exit_on_opposite_signal optimization based on modus and strategy config flag
     # Check strategy config first for the optimization flag
-    optimization_settings = strategy_config.get("optimization_settings", {})
-    optimize_exit_flag = optimization_settings.get(
+    # Handle exit_on_opposite_signal optimization based on modus and main config flag
+    optimize_exit_flag = main_optimization_settings.get(
         "optimize_exit_signal_if_modus_both", False
     )
 

@@ -143,7 +143,9 @@ def execute_optimization_loops(
 
         # Build parameter grid ONCE per strategy
         param_grid = build_param_grid(
-            strategy_config, backtest_settings  # Pass main backtest settings
+            strategy_config,
+            backtest_settings,
+            opt_settings,  # Pass main backtest settings and optimization settings
         )
         total_combinations = calculate_total_combinations(
             param_grid

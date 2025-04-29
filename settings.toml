@@ -51,7 +51,7 @@ backtest_modus = "buy"                  # Added single value
 debug_mode = false
 
 [dev.optimization_settings]
-optimize_exit_signal_if_modus_both = false
+optimize_exit_signal_if_modus_both = true
 target_metrics = ["Sharpe Ratio", "Sortino Ratio"]
 active_strategies = ["follow-the-flow", "counter-trade"] # Moved list
 symbols = ["BTCUSDT", "FARTCOINUSDT"]                    # Moved list
