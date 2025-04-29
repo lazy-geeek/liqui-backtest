@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill
+import numpy as np
 
 
 def _save_dataframe_to_excel(
@@ -169,11 +170,15 @@ def _save_dataframe_to_excel(
                                 if pd.notna(val):
                                     if (
                                         best_val is not None
+                                        and np.isfinite(val)
+                                        and np.isfinite(best_val)
                                         and abs(val - best_val) < 1e-9
                                     ):
                                         cell.fill = lime_fill  # Best value
                                     elif (
                                         worst_val is not None
+                                        and np.isfinite(val)
+                                        and np.isfinite(worst_val)
                                         and abs(val - worst_val) < 1e-9
                                     ):
                                         cell.fill = red_fill  # Worst value
