@@ -93,6 +93,15 @@ def generate_symbol_summary_excel(
 
     results_df = _process_results_to_dataframe(symbol_run_results)
 
+    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
+        results_df = results_df.sort_values(
+            by=["symbol", "Return [%]"], ascending=[True, False]
+        )
+    elif "symbol" in results_df.columns:
+        results_df = results_df.sort_values(by=["symbol"], ascending=True)
+    else:
+        print("WARNING: Could not sort symbol summary. 'symbol' column not found.")
+
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join("strategies_config", active_strategy)
     excel_filename = os.path.join(
@@ -124,6 +133,15 @@ def save_summary_to_excel(
         return
 
     results_df = _process_results_to_dataframe(all_run_results)
+
+    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
+        results_df = results_df.sort_values(
+            by=["symbol", "Return [%]"], ascending=[True, False]
+        )
+    elif "symbol" in results_df.columns:
+        results_df = results_df.sort_values(by=["symbol"], ascending=True)
+    else:
+        print("WARNING: Could not sort strategy summary. 'symbol' column not found.")
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join("strategies_config", active_strategy)
