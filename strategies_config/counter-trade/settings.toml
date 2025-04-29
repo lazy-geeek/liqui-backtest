@@ -3,7 +3,7 @@ average_liquidation_multiplier = 4.0
 stop_loss_percentage = 3.0
 take_profit_percentage = 4.0
 exit_on_opposite_signal = false
-cooldown_candles = 0
+cooldown_candles = 1
 liquidation_aggregation_minutes = 5
 average_lookback_period_days = 14
 
@@ -11,22 +11,22 @@ average_lookback_period_days = 14
 
 [default.optimization_ranges.average_liquidation_multiplier]
 start = 2.0
-end = 4.0
+end = 10.0
 step = 1.0
 
 [default.optimization_ranges.stop_loss_percentage]
 start = 1.0
-end = 2.0
-step = 1.0
+end = 4.0
+step = 0.5
 
 [default.optimization_ranges.take_profit_percentage]
 start = 1.0
-end = 4.0
-step = 1.0
+end = 8.0
+step = 0.5
 
 [default.optimization_ranges.cooldown_candles]
-start = 0
-end = 2
+start = 1
+end = 10
 step = 1
 
 ########################## Dev Settings ##########################
@@ -36,7 +36,7 @@ average_liquidation_multiplier = 4.0
 stop_loss_percentage = 3.0
 take_profit_percentage = 4.0
 exit_on_opposite_signal = false
-cooldown_candles = 0
+cooldown_candles = 1
 liquidation_aggregation_minutes = 5
 average_lookback_period_days = 14
 
@@ -58,6 +58,6 @@ end = 4.0
 step = 1.0
 
 [dev.optimization_ranges.cooldown_candles]
-start = 0
+start = 1
 end = 2
 step = 1
