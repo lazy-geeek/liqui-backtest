@@ -15,7 +15,6 @@ class CounterTradeStrategy(Strategy):
     average_liquidation_multiplier = 4.0
     stop_loss_percentage = 1.0
     take_profit_percentage = 2.0
-    exit_on_opposite_signal = False
     slippage_pct = 0.0005  # Default slippage (0.05%) as decimal, will be overridden
     pos_size_frac = 0.01  # Default position size fraction, will be overridden
     debug_mode = False
@@ -25,6 +24,7 @@ class CounterTradeStrategy(Strategy):
         5  # Added missing parameter for backtesting library
     )
     average_lookback_period_days = 14  # Added missing parameter for backtesting library
+    exit_on_opposite_signal = False  # Added missing parameter
 
     def init(self):
         """
@@ -87,24 +87,6 @@ class CounterTradeStrategy(Strategy):
         buy_signal = buy_liq_agg > buy_threshold
         sell_signal = sell_liq_agg > sell_threshold
 
-        # --- Exit on Opposite Signal Logic ---
-        if self.position and self.exit_on_opposite_signal:
-            if self.position.is_long and sell_signal:
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Exiting LONG position due to opposite (SELL) signal at {current_price:.4f}"
-                    )
-                self.position.close()
-                # No return here, let the rest of the logic run if needed (e.g., cooldown reset)
-
-            elif self.position.is_short and buy_signal:
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Exiting SHORT position due to opposite (BUY) signal at {current_price:.4f}"
-                    )
-                self.position.close()
-                # No return here
-
         # --- Trade Execution (After Cooldown) ---
         # Execute trade if cooldown just finished
         if trade_ready_after_cooldown:
@@ -114,10 +96,6 @@ class CounterTradeStrategy(Strategy):
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
                 size_fraction = self.pos_size_frac  # Use the passed-in value
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Executing BUY after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                    )
                 self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
                 self.pending_trade_type = None  # Reset pending trade
 
@@ -127,10 +105,6 @@ class CounterTradeStrategy(Strategy):
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
                 size_fraction = self.pos_size_frac  # Use the passed-in value
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Executing SELL after cooldown | Price: {current_price:.4f} | Size: {size_fraction*100:.1f}% equity | SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                    )
                 self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
                 self.pending_trade_type = None  # Reset pending trade
 
@@ -150,15 +124,7 @@ class CounterTradeStrategy(Strategy):
             if buy_signal and (self.modus == "buy" or self.modus == "both"):
                 self.signal_cooldown_counter = self.cooldown_candles
                 self.pending_trade_type = "buy"
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Buy signal detected. Starting {self.cooldown_candles} candle cooldown."
-                    )
 
             elif sell_signal and (self.modus == "sell" or self.modus == "both"):
                 self.signal_cooldown_counter = self.cooldown_candles
                 self.pending_trade_type = "sell"
-                if self.debug_mode:
-                    print(
-                        f"DEBUG: Sell signal detected. Starting {self.cooldown_candles} candle cooldown."
-                    )

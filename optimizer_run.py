@@ -22,6 +22,12 @@ from src.utils import (
 )
 
 if __name__ == "__main__":
+    import multiprocessing
+
+    multiprocessing.set_start_method("fork")
+    from backtesting import Backtest
+
+    # Backtest.Pool = multiprocessing.Pool # Commented out to potentially disable multiprocessing pool
     start_time = time.time()
     check_dependencies()
     print("--- Starting Parameter Optimization ---")

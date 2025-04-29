@@ -1,5 +1,4 @@
 from backtesting import Strategy
-import logging
 
 
 class FollowTheFlowStrategy(Strategy):
@@ -20,19 +19,17 @@ class FollowTheFlowStrategy(Strategy):
     pos_size_frac = 0.01  # Default position size fraction, will be overridden
     debug_mode = False
     modus = "both"  # 'buy', 'sell', or 'both'
-    exit_on_opposite_signal = False  # Required for optimization compatibility
     liquidation_aggregation_minutes = (
         5  # Added missing parameter for backtesting library
     )
     average_lookback_period_days = 7  # Added missing parameter for backtesting library
+    exit_on_opposite_signal = False  # Added missing parameter
 
     def init(self):
         """
         Initialize the strategy. Precompute indicators or series here if needed.
         """
         super().init()
-
-        self.logger = logging.getLogger(__name__)
 
         # Make liquidation data easily accessible
         self.buy_liq = self.data.Liq_Buy_Size
@@ -54,31 +51,12 @@ class FollowTheFlowStrategy(Strategy):
             self.slippage_pct
         )  # Already a decimal from optimizer_run.py
 
-        if self.debug_mode:
-            self.logger.info(
-                "Strategy initialized with parameters: %s",
-                {
-                    "average_liquidation_multiplier": self.average_liquidation_multiplier,
-                    "stop_loss_percentage": self.stop_loss_percentage,
-                    "take_profit_percentage": self.take_profit_percentage,
-                    "modus": self.modus,
-                    "slippage_pct": self.slippage_pct,
-                    "pos_size_frac": self.pos_size_frac,
-                    "exit_on_opposite_signal": self.exit_on_opposite_signal,
-                },
-            )
-
     def next(self):
         """
         Define the logic executed at each data point (candle).
         """
         try:
             super().next()
-
-            if self.debug_mode:
-                self.logger.info(
-                    f"DEBUG: exit_on_opposite_signal: {self.exit_on_opposite_signal}"
-                )
 
             # Enforce strict single-position policy: if any position is open, do nothing
             if self.position:
@@ -94,23 +72,6 @@ class FollowTheFlowStrategy(Strategy):
             sell_signal = sell_liq_agg > sell_threshold
 
             # --- Exit on Opposite Signal Logic ---
-            if self.position and self.exit_on_opposite_signal:
-                if self.position.is_long and sell_signal:
-                    if self.debug_mode:
-                        self.logger.info(
-                            f"Exiting LONG position due to opposite (SELL) signal at {current_price:.4f}"
-                        )
-                    self.position.close()
-                    return  # Exit after closing position
-
-                elif self.position.is_short and buy_signal:
-                    if self.debug_mode:
-                        self.logger.info(
-                            f"Exiting SHORT position due to opposite (BUY) signal at {current_price:.4f}"
-                        )
-                    self.position.close()
-                    return  # Exit after closing position
-
             # --- Entry Logic ---
             # (Only proceed if no position exists OR if exit logic didn't trigger)
             if not self.position:
@@ -118,27 +79,13 @@ class FollowTheFlowStrategy(Strategy):
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
                     size_fraction = self.pos_size_frac  # Use the passed-in value
-                    if self.debug_mode:
-                        self.logger.info(
-                            f"Executing BUY | Price: {current_price:.4f} | "
-                            f"Size: {size_fraction*100:.1f}% equity | "
-                            f"SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                        )
                     self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
 
                 elif sell_signal and (self.modus == "sell" or self.modus == "both"):
                     sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
                     size_fraction = self.pos_size_frac  # Use the passed-in value
-                    if self.debug_mode:
-                        self.logger.info(
-                            f"Executing SELL | Price: {current_price:.4f} | "
-                            f"Size: {size_fraction*100:.1f}% equity | "
-                            f"SL: {sl_price:.4f} | TP: {tp_price:.4f}"
-                        )
                     self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
 
         except Exception as e:
-            if self.debug_mode:
-                self.logger.error(f"Error in strategy execution: {str(e)}")
             raise
