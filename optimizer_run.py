@@ -1,12 +1,15 @@
 """Execution of the backtest optimization."""
 
 import time
+import argparse  # Added import
+import sys  # Added import
 from datetime import timedelta
 
 from typing import Dict, Any, List
 
 # Import necessary modules from src
-from src.optimizer_config import load_all_configs, get_backtest_settings
+# Also import the global 'settings' object
+from src.optimizer_config import settings, load_all_configs, get_backtest_settings
 from src.optimizer_executor import (
     execute_optimization_loops,
     generate_and_save_overall_summary,
@@ -25,7 +28,29 @@ if __name__ == "__main__":
 
     configure_warnings()
 
-    # 1. Load all configurations using Dynaconf (no filename needed)
+    # --- Argument Parsing ---
+    parser = argparse.ArgumentParser(description="Run backtest optimization.")
+    parser.add_argument(
+        "--env",
+        type=str,
+        help="Specify the configuration environment to use (e.g., 'production', 'development'). Overrides default.",
+        default=None,  # Default is None, so we only set if provided
+    )
+    args = parser.parse_args()
+
+    # --- Set Dynaconf Environment if specified ---
+    if args.env:
+        print(f"--- Switching configuration environment to: {args.env} ---")
+        try:
+            settings.setenv(args.env)
+        except ValueError as e:
+            print(f"Error setting environment '{args.env}': {e}")
+            print("Please ensure the environment exists in your settings files.")
+            sys.exit(1)
+    else:
+        print(f"--- Using default configuration environment ---")
+
+    # 1. Load all configurations using Dynaconf (now respects the set environment)
     configs = load_all_configs()
     config = configs["main_settings"]
     active_strategies = configs["active_strategies"]

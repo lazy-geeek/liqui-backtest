@@ -16,7 +16,6 @@ settings = Dynaconf(
     settings_files=["settings.toml"],
     environments=True,  # Enable environment support (e.g., [default], [production])
     load_dotenv=True,  # Load .env file if present
-    env_switcher="BT_ENV",  # Environment variable to switch env (e.g., BT_ENV=production)
     default_env="default",  # Explicitly set the default environment
 )
 
