@@ -87,6 +87,24 @@ class CounterTradeStrategy(Strategy):
         buy_signal = buy_liq_agg > buy_threshold
         sell_signal = sell_liq_agg > sell_threshold
 
+        # --- Exit on Opposite Signal Logic ---
+        if self.position and self.exit_on_opposite_signal:
+            if self.position.is_long and sell_signal:
+                if self.debug_mode:
+                    print(
+                        f"DEBUG: Exiting LONG position due to opposite (SELL) signal at {current_price:.4f}"
+                    )
+                self.position.close()
+                # No return here, let the rest of the logic run if needed (e.g., cooldown reset)
+
+            elif self.position.is_short and buy_signal:
+                if self.debug_mode:
+                    print(
+                        f"DEBUG: Exiting SHORT position due to opposite (BUY) signal at {current_price:.4f}"
+                    )
+                self.position.close()
+                # No return here
+
         # --- Trade Execution (After Cooldown) ---
         # Execute trade if cooldown just finished
         if trade_ready_after_cooldown:

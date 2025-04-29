@@ -75,6 +75,11 @@ class FollowTheFlowStrategy(Strategy):
         try:
             super().next()
 
+            if self.debug_mode:
+                self.logger.info(
+                    f"DEBUG: exit_on_opposite_signal: {self.exit_on_opposite_signal}"
+                )
+
             # Enforce strict single-position policy: if any position is open, do nothing
             if self.position:
                 return
@@ -88,7 +93,26 @@ class FollowTheFlowStrategy(Strategy):
             buy_signal = buy_liq_agg > buy_threshold
             sell_signal = sell_liq_agg > sell_threshold
 
+            # --- Exit on Opposite Signal Logic ---
+            if self.position and self.exit_on_opposite_signal:
+                if self.position.is_long and sell_signal:
+                    if self.debug_mode:
+                        self.logger.info(
+                            f"Exiting LONG position due to opposite (SELL) signal at {current_price:.4f}"
+                        )
+                    self.position.close()
+                    return  # Exit after closing position
+
+                elif self.position.is_short and buy_signal:
+                    if self.debug_mode:
+                        self.logger.info(
+                            f"Exiting SHORT position due to opposite (BUY) signal at {current_price:.4f}"
+                        )
+                    self.position.close()
+                    return  # Exit after closing position
+
             # --- Entry Logic ---
+            # (Only proceed if no position exists OR if exit logic didn't trigger)
             if not self.position:
                 if buy_signal and (self.modus == "buy" or self.modus == "both"):
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)

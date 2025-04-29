@@ -141,15 +141,8 @@ def execute_optimization_loops(
             )
             continue  # Skip to the next strategy
 
-        # Build parameter grid ONCE per strategy
-        param_grid = build_param_grid(
-            strategy_config,
-            backtest_settings,
-            opt_settings,  # Pass main backtest settings and optimization settings
-        )
-        total_combinations = calculate_total_combinations(
-            param_grid
-        )  # Maybe log this per strategy?
+        # Parameter grid will be built inside the mode loop
+        # total_combinations calculation might need adjustment if needed per strategy
 
         # --- Symbol Loop Start (Now inside Strategy loop) ---
         for symbol in tqdm(
@@ -241,11 +234,13 @@ def execute_optimization_loops(
                         margin=margin,
                     )
 
-                    # Create a mode-specific parameter grid
-                    mode_specific_param_grid = (
-                        param_grid.copy()
-                    )  # Use grid built per strategy
-                    mode_specific_param_grid["modus"] = mode
+                    # Build parameter grid for the current mode
+                    mode_specific_param_grid = build_param_grid(
+                        strategy_config,
+                        backtest_settings,
+                        opt_settings,
+                        mode,  # Pass the current mode
+                    )
 
                     # 7. Run optimization
                     stats, heatmap = run_optimization(
@@ -256,7 +251,7 @@ def execute_optimization_loops(
                     result_data = process_and_save_results(
                         stats=stats,
                         heatmap=heatmap,
-                        param_grid=param_grid,  # Use grid built per strategy
+                        param_grid=mode_specific_param_grid,  # Use grid built for the current mode
                         config=configs[
                             "main_settings"
                         ],  # Pass the main settings object

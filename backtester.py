@@ -1,6 +1,10 @@
 import pandas as pd
 from datetime import datetime
 from backtesting import Backtest, Strategy
+import logging
+import pandas as pd
+from datetime import datetime
+from backtesting import Backtest, Strategy
 from termcolor import colored
 import glob
 import os
@@ -88,6 +92,12 @@ def run_single_backtest(
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     # Access settings using the global settings object
     backtest_settings = settings.get("backtest_settings", {})
     app_settings = settings.get("app_settings", {})

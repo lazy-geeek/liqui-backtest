@@ -9,9 +9,9 @@ commission_percentage = 0.045
 leverage = 10
 slippage_percentage_per_side = 0.05
 position_size_fraction = 0.05
-active_strategy = "follow-the-flow"     # Added single value
-symbol = "SOLUSDT"                      # Added single value
-backtest_modus = "both"                 # Added single value
+active_strategy = "counter-trade"
+symbol = "BTCUSDT"
+backtest_modus = "both"
 
 [default.app_settings]
 debug_mode = false
@@ -19,8 +19,8 @@ debug_mode = false
 [default.optimization_settings]
 optimize_exit_signal_if_modus_both = true
 target_metrics = ["Sharpe Ratio", "Sortino Ratio", "Calmar Ratio", "Return [%]"]
-active_strategies = ["follow-the-flow", "counter-trade"] # Moved list
-symbols = [ # Moved list
+active_strategies = ["follow-the-flow", "counter-trade"]
+symbols = [
     "SOLUSDT",
     "FARTCOINUSDT",
     "MAGICUSDT",
@@ -29,7 +29,7 @@ symbols = [ # Moved list
     "SUIUSDT",
     "ENAUSDT",
 ]
-modus = ["buy", "sell", "both"] # Moved list
+modus = ["buy", "sell", "both"]
 
 
 [dev]
@@ -43,9 +43,9 @@ commission_percentage = 0.045
 leverage = 10
 slippage_percentage_per_side = 0.05
 position_size_fraction = 0.05
-active_strategy = "follow-the-flow"     # Added single value
-symbol = "BTCUSDT"                      # Added single value
-backtest_modus = "buy"                  # Added single value
+active_strategy = "follow-the-flow"
+symbol = "BTCUSDT"
+backtest_modus = "both"
 
 [dev.app_settings]
 debug_mode = false
@@ -53,6 +53,6 @@ debug_mode = false
 [dev.optimization_settings]
 optimize_exit_signal_if_modus_both = true
 target_metrics = ["Sharpe Ratio", "Sortino Ratio"]
-active_strategies = ["follow-the-flow", "counter-trade"] # Moved list
-symbols = ["BTCUSDT", "FARTCOINUSDT"]                    # Moved list
-modus = ["buy", "both"]                                  # Moved list
+active_strategies = ["follow-the-flow", "counter-trade"]
+symbols = ["BTCUSDT", "SUIUSDT"]
+modus = ["buy", "both"]

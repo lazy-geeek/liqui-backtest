@@ -10,6 +10,7 @@ def build_param_grid(
     strategy_config: Dict[str, Any],
     main_backtest_settings: Dict[str, Any],
     main_optimization_settings: Dict[str, Any],
+    current_mode: str,  # Added current_mode parameter
 ) -> Dict[str, Any]:
     """
     Builds the parameter grid for optimization from config.
@@ -18,6 +19,7 @@ def build_param_grid(
         strategy_config: The configuration specific to the strategy being optimized.
         main_backtest_settings: The general backtest settings from the main config.
         main_optimization_settings: The optimization settings from the main config.
+        current_mode: The specific mode ('buy', 'sell', or 'both') for the current optimization run.
 
     Returns:
         A dictionary representing the parameter grid for backtesting.py optimize method.
@@ -97,10 +99,7 @@ def build_param_grid(
     )
 
     # Adjust param_grid based on modus (primarily for removing unnecessary thresholds)
-    modus_list = main_backtest_settings.get(
-        "modus", ["both"]
-    )  # Get list from main settings
-
+    # Adjust param_grid based on the current mode and optimization settings
     optimize_exit_flag = main_optimization_settings.get(
         "optimize_exit_signal_if_modus_both", False
     )
@@ -108,12 +107,15 @@ def build_param_grid(
     # Read fixed/default value from strategy_parameters in strategy config
     fixed_exit_value = strategy_defaults.get("exit_on_opposite_signal", False)
 
-    # Only optimize if 'both' is one of the modes being run AND the flag is set
-    if "both" in modus_list and optimize_exit_flag:
+    # Only optimize exit_on_opposite_signal if the current mode is 'both' AND the flag is set
+    if current_mode == "both" and optimize_exit_flag:
         param_grid["exit_on_opposite_signal"] = [False, True]
     else:
         # Otherwise, use the fixed value (either from strategy defaults or potentially overridden)
         param_grid["exit_on_opposite_signal"] = fixed_exit_value
+
+    # Add the current mode to the parameter grid
+    param_grid["modus"] = current_mode
 
     return param_grid
 
