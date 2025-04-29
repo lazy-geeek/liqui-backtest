@@ -115,7 +115,9 @@ def execute_optimization_loops(
         strategy_all_symbols_results = []
 
         # Load strategy config ONCE per strategy
-        strategy_config = load_strategy_config(current_strategy_name)
+        # Pass the current environment to ensure correct settings are loaded
+        active_env = configs["main_settings"].current_env
+        strategy_config = load_strategy_config(current_strategy_name, active_env)
         # Load strategy-specific liquidation parameters
         liq_params = strategy_config.get("strategy_parameters", {})
 

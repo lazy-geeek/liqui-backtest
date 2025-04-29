@@ -15,17 +15,20 @@ from src.optimizer_config import settings, load_strategy_config
 import pandas as pd
 
 
-def _get_backtest_params_from_config(active_strategy: str) -> Dict[str, Any]:
+def _get_backtest_params_from_config(
+    active_strategy: str, active_env: str
+) -> Dict[str, Any]:
     """Extract backtest and optimization parameters using Dynaconf settings.
 
     Args:
         active_strategy: Name of the strategy to load strategy-specific params.
+        active_env: The currently active environment (e.g., 'dev', 'production').
 
     Returns:
         Dictionary containing all relevant parameters for Excel summaries.
     """
     # Load strategy-specific settings
-    strategy_settings = load_strategy_config(active_strategy)
+    strategy_settings = load_strategy_config(active_strategy, active_env)
     # Access global settings via the imported 'settings' object
     bt_settings = settings.get("backtest_settings", {})
     opt_settings = settings.get("optimization_settings", {})
@@ -171,7 +174,9 @@ def generate_symbol_summary_excel(
         "symbol", active_strategy=active_strategy, symbol=symbol
     )
 
-    params = _get_backtest_params_from_config(active_strategy)
+    # Get the current environment from the global settings object
+    current_env = settings.current_env
+    params = _get_backtest_params_from_config(active_strategy, current_env)
 
     _save_dataframe_to_excel(results_df, excel_filename, params)
 
@@ -199,7 +204,9 @@ def save_summary_to_excel(
     excel_filename = _generate_excel_filepath(
         "strategy", active_strategy=active_strategy
     )
-    params = _get_backtest_params_from_config(active_strategy)
+    # Get the current environment from the global settings object
+    current_env = settings.current_env
+    params = _get_backtest_params_from_config(active_strategy, current_env)
 
     _save_dataframe_to_excel(results_df, excel_filename, params)
 

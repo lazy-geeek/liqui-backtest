@@ -70,8 +70,11 @@ def load_all_configs() -> Dict[str, Any]:
     }
 
 
-def load_strategy_config(strategy_name: str) -> Dynaconf:
-    """Load the configuration for a specific strategy using a separate Dynaconf instance."""
+def load_strategy_config(strategy_name: str, active_env: str) -> Dynaconf:
+    """
+    Load the configuration for a specific strategy using a separate Dynaconf instance,
+    setting the environment based on the active global environment.
+    """
     strategy_config_path = os.path.join(
         "strategies_config",
         strategy_name,
@@ -87,9 +90,19 @@ def load_strategy_config(strategy_name: str) -> Dynaconf:
         envvar_prefix=f"BT_{strategy_name.upper()}",  # Optional: Strategy-specific env var prefix
         settings_files=[strategy_config_path],
         environments=True,  # Maintain environment awareness if needed
-        default_env="default",
+        default_env="default",  # Still set a default, but we will override below
         # Typically, no need to load .secrets.toml or .env here, assuming they are global
     )
+
+    # Explicitly set the environment on the strategy settings instance
+    try:
+        strategy_settings.setenv(active_env)
+    except ValueError as e:
+        print(
+            f"Warning: Environment '{active_env}' not found in strategy config for '{strategy_name}'. Using default environment."
+        )
+        # Optionally, you could sys.exit(1) here if environment must exist in strategy config
+
     return strategy_settings
 
 
