@@ -122,9 +122,9 @@ if __name__ == "__main__":
     strategy_params["modus"] = backtest_modus
 
     # Create results directory for this strategy/symbol combination
-    results_dir = os.path.join(
-        "strategies", active_strategy, symbol, "backtest_results"
-    )
+    # Create results directory for this strategy/symbol combination
+    # Changed to save HTML to a 'backtest_results' folder in the root directory
+    results_dir = "backtest_results"
     os.makedirs(results_dir, exist_ok=True)
 
     # Dynamically import the strategy class
