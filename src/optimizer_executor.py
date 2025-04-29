@@ -75,16 +75,21 @@ def execute_optimization_loops(
     Executes the nested loops for strategies, symbols, metrics, and modes
     to run the backtest optimization.
     """
-    active_strategies = configs["active_strategies"]
-    symbols = backtest_settings["symbols"]
+    # Get optimization settings from the configs dictionary
+    opt_settings = configs["main_settings"].get("optimization_settings", {})
+
+    active_strategies = opt_settings.get("active_strategies")
+    symbols = opt_settings.get("symbols")
+    modus_list = opt_settings.get("modus")
+    target_metrics_list = opt_settings.get("target_metrics")
+
+    # Get backtest settings (these are general settings, not optimization specific)
     timeframe = backtest_settings["timeframe"]
     start_date = backtest_settings["start_date"]
     end_date = backtest_settings["end_date"]
     initial_cash = backtest_settings["initial_cash"]
     commission_pct = backtest_settings["commission_pct"]
     leverage = backtest_settings["leverage"]
-    modus_list = backtest_settings["modus"]
-    target_metrics_list = backtest_settings["target_metrics"]
     slippage_percentage_per_side = backtest_settings["slippage_percentage_per_side"]
     position_size_fraction = backtest_settings["position_size_fraction"]
 
@@ -138,8 +143,8 @@ def execute_optimization_loops(
 
         # Build parameter grid ONCE per strategy
         param_grid = build_param_grid(
-            strategy_config, backtest_settings
-        )  # Pass main backtest settings
+            strategy_config, backtest_settings  # Pass main backtest settings
+        )
         total_combinations = calculate_total_combinations(
             param_grid
         )  # Maybe log this per strategy?

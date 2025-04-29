@@ -78,40 +78,75 @@ def configure_warnings():
 
 
 def print_optimization_settings(
-    backtest_settings: Dict[str, Any], active_strategies: List[str]
+    backtest_settings: Dict[str, Any], optimization_settings: Dict[str, Any]
 ):
     """Print general optimization settings."""
-    symbols = backtest_settings["symbols"]
-    timeframe = backtest_settings["timeframe"]
-    start_date = backtest_settings["start_date"]
-    end_date = backtest_settings["end_date"]
-    initial_cash = backtest_settings["initial_cash"]
-    commission_pct = backtest_settings["commission_pct"]
-    leverage = backtest_settings["leverage"]
-    modus_list = backtest_settings["modus"]
-    target_metrics_list = backtest_settings["target_metrics"]
-    slippage_percentage_per_side = backtest_settings["slippage_percentage_per_side"]
-    position_size_fraction = backtest_settings["position_size_fraction"]
+    # Read optimization specific settings
+    active_strategies = optimization_settings.get("active_strategies", [])
+    symbols = optimization_settings.get("symbols", [])
+    modus_list = optimization_settings.get("modus", [])
+    target_metrics_list = optimization_settings.get("target_metrics", [])
 
-    # Calculate margin
+    # Read general backtest settings (still needed for printing)
+    timeframe = backtest_settings.get("timeframe", "N/A")
+    start_date = backtest_settings.get("start_date", "N/A")
+    end_date = backtest_settings.get("end_date", "N/A")
+    initial_cash = backtest_settings.get("initial_cash", "N/A")
+    commission_pct = backtest_settings.get("commission_percentage", "N/A")
+    leverage = backtest_settings.get("leverage", "N/A")
+    slippage_percentage_per_side = backtest_settings.get(
+        "slippage_percentage_per_side", "N/A"
+    )
+    position_size_fraction = backtest_settings.get("position_size_fraction", "N/A")
+
+    # Calculate margin (only if leverage is a number)
+    margin = "N/A"
+    lev_float = None
     try:
         lev_float = float(leverage)
-        if lev_float <= 0:
-            lev_float = 1.0
+        if lev_float > 0:
+            margin = 1.0 / lev_float
+        else:
+            print("Warning: Leverage must be positive for margin calculation.")
+            lev_float = "N/A"  # Reset to N/A if not positive
     except (ValueError, TypeError):
-        lev_float = 1.0
-    margin = 1.0 / lev_float
+        print("Warning: Invalid leverage value for margin calculation.")
+        lev_float = "N/A"  # Reset to N/A if invalid
 
     print(f"Optimization Targets: {', '.join(target_metrics_list)}")
     print(f"Symbols to process: {', '.join(symbols)}")
     print(f"Strategies to process: {', '.join(active_strategies)}")
     print(f"Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
-    print(f"Initial Cash: ${initial_cash:,.2f}, Commission: {commission_pct:.4f}%")
-    print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
+    print(
+        (
+            f"Initial Cash: ${initial_cash:,.2f}"
+            if isinstance(initial_cash, (int, float))
+            else f"Initial Cash: {initial_cash}"
+        ),
+        end="",
+    )
+    print(
+        f", Commission: {commission_pct:.4f}%"
+        if isinstance(commission_pct, (int, float))
+        else f", Commission: {commission_pct}"
+    )
+    print(
+        f"Leverage: {lev_float}x (Margin: {margin:.4f})"
+        if isinstance(lev_float, (int, float))
+        else f"Leverage: {lev_float}x (Margin: {margin})"
+    )
     print(f"Modes to process: {', '.join(modus_list)}")
-    print(f"Slippage Per Side: {slippage_percentage_per_side:.4f}%")
-    print(f"Position Size Fraction: {position_size_fraction:.4f}")
+    print(
+        f"Slippage Per Side: {slippage_percentage_per_side:.4f}%"
+        if isinstance(slippage_percentage_per_side, (int, float))
+        else f"Slippage Per Side: {slippage_percentage_per_side}"
+    )
+    print(
+        f"Position Size Fraction: {position_size_fraction:.4f}"
+        if isinstance(position_size_fraction, (int, float))
+        else f"Position Size Fraction: {position_size_fraction}"
+    )
     print("-" * 30)
 
 

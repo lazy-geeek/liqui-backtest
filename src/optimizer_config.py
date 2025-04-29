@@ -35,16 +35,38 @@ settings = Dynaconf(
 
 
 def load_all_configs() -> Dict[str, Any]:
-    """Load main config settings and list of active strategies using Dynaconf."""
+    """Load main config settings and optimization settings using Dynaconf."""
     # Settings are loaded into the global 'settings' object
-    active_strategies = settings.get("active_strategies")  # Use .get() for safer access
+
+    # Access optimization settings
+    opt_settings = settings.get("optimization_settings", {})
+
+    active_strategies = opt_settings.get("active_strategies")
     if not active_strategies or not isinstance(active_strategies, list):
-        print("Error: 'active_strategies' not set or is not a list in settings.toml")
+        print(
+            "Error: 'active_strategies' not set or is not a list in optimization_settings in settings.toml"
+        )
+        sys.exit(1)
+
+    symbols = opt_settings.get("symbols")
+    if not symbols or not isinstance(symbols, list):
+        print(
+            "Error: 'symbols' not set or is not a list in optimization_settings in settings.toml"
+        )
+        sys.exit(1)
+
+    modus_list = opt_settings.get("modus")
+    if not modus_list or not isinstance(modus_list, list):
+        print(
+            "Error: 'modus' not set or is not a list in optimization_settings in settings.toml"
+        )
         sys.exit(1)
 
     return {
         "main_settings": settings,  # Return the global settings object itself
         "active_strategies": active_strategies,
+        "symbols": symbols,  # Return symbols list for optimization
+        "modus_list": modus_list,  # Return modus list for optimization
     }
 
 
@@ -98,21 +120,18 @@ def get_backtest_settings(main_settings: Dynaconf) -> Dict[str, Any]:
         )
         sys.exit(1)
 
-    # Ensure 'symbols' is a list
-    symbols_list = bt_settings.get("symbols", ["ETHUSDT"])  # Default if missing
-    if not isinstance(symbols_list, list):
-        print(f"Warning: 'symbols' in config is not a list. Using default: ['ETHUSDT']")
-        symbols_list = ["ETHUSDT"]
-    elif not symbols_list:  # Handle empty list case
-        print(f"Warning: 'symbols' list in config is empty. Using default: ['ETHUSDT']")
-        symbols_list = ["ETHUSDT"]
+    # Get single backtest parameters
+    active_strategy = bt_settings.get("active_strategy", "follow-the-flow")
+    symbol = bt_settings.get("symbol", "ETHUSDT")
+    backtest_modus = bt_settings.get("backtest_modus", "both")
 
-    # Access optimization settings safely
+    # Access optimization settings safely (target_metrics is still here)
     opt_settings = main_settings.get("optimization_settings", {})
     target_metrics = opt_settings.get("target_metrics", ["Sharpe Ratio"])
 
     return {
-        "symbols": symbols_list,
+        "active_strategy": active_strategy,  # Return single strategy
+        "symbol": symbol,  # Return single symbol
         "timeframe": bt_settings.get("timeframe", "5m"),
         "start_date": start_date,
         "end_date": end_date,
@@ -121,8 +140,8 @@ def get_backtest_settings(main_settings: Dynaconf) -> Dict[str, Any]:
             "commission_percentage", 0.04
         ),  # Keep original key name
         "leverage": bt_settings.get("leverage", 1),
-        "modus": bt_settings.get("modus", "both"),
-        "target_metrics": target_metrics,
+        "modus": backtest_modus,  # Return single modus
+        "target_metrics": target_metrics,  # Still from optimization settings
         "slippage_percentage_per_side": bt_settings.get(
             "slippage_percentage_per_side", 0.0
         ),

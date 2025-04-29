@@ -21,6 +21,10 @@ class CounterTradeStrategy(Strategy):
     debug_mode = False
     modus = "both"
     cooldown_candles = 0  # Number of candles to wait after signal before trading
+    liquidation_aggregation_minutes = (
+        5  # Added missing parameter for backtesting library
+    )
+    average_lookback_period_days = 14  # Added missing parameter for backtesting library
 
     def init(self):
         """

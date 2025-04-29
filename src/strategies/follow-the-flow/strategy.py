@@ -21,6 +21,10 @@ class FollowTheFlowStrategy(Strategy):
     debug_mode = False
     modus = "both"  # 'buy', 'sell', or 'both'
     exit_on_opposite_signal = False  # Required for optimization compatibility
+    liquidation_aggregation_minutes = (
+        5  # Added missing parameter for backtesting library
+    )
+    average_lookback_period_days = 7  # Added missing parameter for backtesting library
 
     def init(self):
         """

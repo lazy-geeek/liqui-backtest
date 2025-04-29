@@ -1,4 +1,3 @@
-import json
 import pandas as pd
 from datetime import datetime
 from backtesting import Backtest, Strategy
@@ -7,6 +6,13 @@ import glob
 import os
 import warnings
 from typing import Type  # Added for type hinting Strategy class
+import importlib
+
+# Import Dynaconf and config loading functions
+from dynaconf import Dynaconf
+from src.optimizer_config import (
+    load_strategy_config,
+)  # Import the strategy config loader
 
 # Suppress Bokeh timezone warning
 warnings.filterwarnings(
@@ -21,28 +27,16 @@ warnings.filterwarnings(
 
 # Import our custom modules
 from src import data_fetcher
-import importlib
-
-# --- Configuration Loading ---
-CONFIG_FILE = "config.json"
 
 
-def load_config(config_path: str) -> dict:
-    """Loads configuration from a JSON file."""
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        print(f"Configuration loaded successfully from {config_path}")
-        return config
-    except FileNotFoundError:
-        print(f"Error: Configuration file not found at {config_path}")
-        exit(1)  # Use exit code 1 for errors
-    except json.JSONDecodeError:
-        print(f"Error: Could not decode JSON from {config_path}")
-        exit(1)
-    except Exception as e:
-        print(f"An unexpected error occurred loading config: {e}")
-        exit(1)
+# Initialize Dynaconf globally to load settings from settings.toml
+settings = Dynaconf(
+    envvar_prefix="BT",
+    settings_files=["settings.toml"],
+    environments=True,
+    load_dotenv=True,
+    default_env="default",  # Explicitly set the default environment
+)
 
 
 # --- Core Backtesting Function ---
@@ -94,22 +88,38 @@ def run_single_backtest(
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    config = load_config(CONFIG_FILE)
+    # Access settings using the global settings object
+    backtest_settings = settings.get("backtest_settings", {})
+    app_settings = settings.get("app_settings", {})
 
-    # Load active strategy and its config
-    active_strategy = config.get("active_strategy")
+    # Get single backtest parameters from backtest_settings
+    active_strategy = backtest_settings.get("active_strategy")
+    symbol = backtest_settings.get("symbol")
+    backtest_modus = backtest_settings.get("backtest_modus")
+    timeframe = backtest_settings.get("timeframe", "5m")
+    start_date_iso = backtest_settings.get("start_date_iso", "2025-01-01T00:00:00Z")
+    end_date_iso = backtest_settings.get("end_date_iso", "2025-04-01T00:00:00Z")
+    initial_cash = backtest_settings.get("initial_cash", 10000)
+    commission_pct = backtest_settings.get("commission_percentage", 0.04)
+    leverage = backtest_settings.get("leverage", 1)
+
+    # Validate required single backtest parameters
     if not active_strategy:
-        print("Error: 'active_strategy' not set in config.json")
+        print("Error: 'active_strategy' not set in backtest_settings in settings.toml")
         exit(1)
-    strategy_config_path = os.path.join("strategies", active_strategy, "config.json")
-    if not os.path.exists(strategy_config_path):
-        print(f"Error: Strategy config not found at {strategy_config_path}")
+    if not symbol:
+        print("Error: 'symbol' not set in backtest_settings in settings.toml")
         exit(1)
-    strategy_config = load_config(strategy_config_path)
+    if not backtest_modus:
+        print("Error: 'backtest_modus' not set in backtest_settings in settings.toml")
+        exit(1)
 
-    # Extract settings from config first to get symbol
-    backtest_settings = config.get("backtest_settings", {})
-    symbol = backtest_settings.get("symbol", "SUIUSDT")
+    # Load strategy-specific config using the function from optimizer_config
+    strategy_config = load_strategy_config(active_strategy)
+    strategy_params = strategy_config.get("strategy_parameters", {}).copy()
+
+    # Pass backtest_modus into strategy_params
+    strategy_params["modus"] = backtest_modus
 
     # Create results directory for this strategy/symbol combination
     results_dir = os.path.join(
@@ -119,7 +129,12 @@ if __name__ == "__main__":
 
     # Dynamically import the strategy class
     strategy_module_path = f"src.strategies.{active_strategy}.strategy"
-    strategy_module = importlib.import_module(strategy_module_path)
+    try:
+        strategy_module = importlib.import_module(strategy_module_path)
+    except ModuleNotFoundError:
+        print(f"Error: Strategy module not found at {strategy_module_path}. Exiting.")
+        exit(1)
+
     # Find the strategy class (assume only one class ending with 'Strategy')
     strategy_class = None
     for attr in dir(strategy_module):
@@ -127,10 +142,10 @@ if __name__ == "__main__":
             strategy_class = getattr(strategy_module, attr)
             break
     if strategy_class is None:
-        print(f"Error: No strategy class found in {strategy_module_path}")
+        print(f"Error: No strategy class found in {strategy_module_path}. Exiting.")
         exit(1)
 
-    # Delete all previously generated backtest HTML files for this strategy
+    # Delete all previously generated backtest HTML files for this strategy/symbol
     print(f"Deleting old backtest HTML files from {results_dir}...")
     deleted_count = 0
     for html_file in glob.glob(os.path.join(results_dir, "backtest_*.html")):
@@ -143,40 +158,17 @@ if __name__ == "__main__":
         print(f"Deleted {deleted_count} old backtest file(s).")
     print("-" * 30)
 
-    # Extract settings from config
-    backtest_settings = config.get("backtest_settings", {})
-    strategy_params = strategy_config.get("strategy_parameters", {}).copy()
-
-    # Pass modus from backtest_settings into strategy_params
-    modus = backtest_settings.get("modus", "both")
-    strategy_params["modus"] = modus
-    app_settings = config.get("app_settings", {})
-
-    # Parse backtest settings
-    symbol = backtest_settings.get("symbol", "SUIUSDT")
-    timeframe = backtest_settings.get("timeframe", "5m")
+    # Parse date strings
     try:
-        start_date_str = backtest_settings.get("start_date_iso", "2025-01-01T00:00:00Z")
-        end_date_str = backtest_settings.get("end_date_iso", "2025-04-01T00:00:00Z")
         # Ensure timezone-aware datetime objects
-        start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-        end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
+        start_date = datetime.fromisoformat(start_date_iso.replace("Z", "+00:00"))
+        end_date = datetime.fromisoformat(end_date_iso.replace("Z", "+00:00"))
     except ValueError as e:
         print(f"Error parsing date strings from config: {e}")
         exit(1)
 
-    initial_cash = backtest_settings.get("initial_cash", 10000)
-    commission_pct = backtest_settings.get("commission_percentage", 0.04)
-    commission_decimal = commission_pct / 100.0  # Moved calculation here
-    leverage = backtest_settings.get("leverage", 1)
-    liquidation_aggregation_minutes = backtest_settings.get(
-        "liquidation_aggregation_minutes", 5
-    )
-    average_lookback_period_days = backtest_settings.get(
-        "average_lookback_period_days", 7
-    )
-
-    # Calculate margin
+    # Calculate commission decimal and margin
+    commission_decimal = commission_pct / 100.0
     try:
         lev_float = float(leverage)
         if lev_float <= 0:
@@ -188,13 +180,20 @@ if __name__ == "__main__":
     margin = 1.0 / lev_float
 
     print("--- Starting Liquidation Backtester ---")
+    print(f"Strategy: {active_strategy}")
     print(f"Symbol: {symbol}")
     print(f"Timeframe: {timeframe}")
     print(f"Period: {start_date} to {end_date}")
     print(f"Initial Cash: ${initial_cash:,.2f}")
     print(f"Commission: {commission_pct:.4f}% ({commission_decimal:.6f} decimal)")
     print(f"Leverage: {lev_float}x (Margin: {margin:.4f})")
-    print(f"Liquidation Aggregation: {liquidation_aggregation_minutes} minutes")
+    print(
+        f"Liquidation Aggregation: {strategy_params.get('liquidation_aggregation_minutes')} minutes"
+    )
+    print(
+        f"Average Lookback Period: {strategy_params.get('average_lookback_period_days')} days"
+    )
+    print(f"Backtest Modus: {backtest_modus}")
     print(f"Strategy Params: {strategy_params}")
 
     # Add debug_mode from app_settings to strategy_params
@@ -205,14 +204,35 @@ if __name__ == "__main__":
     # 1. Fetch and Prepare Data
     print("Preparing data...")
 
-    data = data_fetcher.prepare_data(
-        symbol,
-        timeframe,
-        start_date,
-        end_date,
-        liquidation_aggregation_minutes=liquidation_aggregation_minutes,
-        average_lookback_period_days=average_lookback_period_days,
-    )
+    # Dynamically import the strategy-specific data preparation function
+    prepare_data_module_path = f"src.strategies.{active_strategy}.data_preparation"
+    try:
+        prepare_data_module = importlib.import_module(prepare_data_module_path)
+        prepare_strategy_data_func = getattr(
+            prepare_data_module, "prepare_strategy_data"
+        )
+    except (ModuleNotFoundError, AttributeError) as e:
+        print(
+            f"\nError importing data preparation function from {prepare_data_module_path}: {e}"
+        )
+        print(f"Skipping symbol {symbol} for strategy {active_strategy}.")
+        exit(1)  # Exit if data preparation function is missing
+
+    # Prepare data using the strategy-specific function, passing fetchers and params
+    try:
+        data = prepare_strategy_data_func(
+            fetch_ohlcv_func=data_fetcher.fetch_ohlcv,  # Pass fetcher
+            fetch_liquidations_func=data_fetcher.fetch_liquidations,  # Pass fetcher
+            strategy_params=strategy_params,  # Pass strategy params
+            symbol=symbol,
+            timeframe=timeframe,
+            start_dt=start_date,
+            end_dt=end_date,
+        )
+    except Exception as e:
+        print(f"\nError during data preparation for {symbol} in {active_strategy}: {e}")
+        print("Exiting.")
+        exit(1)
 
     if data.empty:
         print("No data available for backtesting. Exiting.")
@@ -234,9 +254,7 @@ if __name__ == "__main__":
     ]
     missing_cols = [col for col in required_cols if col not in data.columns]
     if missing_cols:
-        print(
-            f"Error: Dataframe missing required columns: {missing_cols}. Found: {list(data.columns)}"
-        )
+        print(f"Error: Dataframe missing required columns: {missing_cols}. Exiting.")
         exit(1)
 
     print(f"Data prepared. Shape: {data.shape}")
@@ -310,7 +328,7 @@ if __name__ == "__main__":
     # Generate filename based on config settings
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    base_filename = f"backtest_{symbol}_{timeframe}_{start_str}-{end_str}.html"
+    base_filename = f"backtest_{active_strategy}_{symbol}_{timeframe}_{start_str}-{end_str}.html"  # Include strategy name
     plot_filename = os.path.join(results_dir, base_filename)
     print(f"Saving plot to {plot_filename}...")
     try:

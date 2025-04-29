@@ -59,7 +59,9 @@ if __name__ == "__main__":
     backtest_settings = get_backtest_settings(config)
 
     # Print general optimization settings
-    print_optimization_settings(backtest_settings, active_strategies)
+    # Print general optimization settings
+    optimization_settings = configs["main_settings"].get("optimization_settings", {})
+    print_optimization_settings(backtest_settings, optimization_settings)
 
     # --- Delete existing Excel files ---
     cleanup_previous_excel_results()
