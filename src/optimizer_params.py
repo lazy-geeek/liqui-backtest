@@ -100,22 +100,7 @@ def build_param_grid(
     modus_list = main_backtest_settings.get(
         "modus", ["both"]
     )  # Get list from main settings
-    # Note: This logic might need refinement if optimizing over multiple modes simultaneously.
-    # Assuming for now we build the grid based on the *potential* modes,
-    # and optimizer_run.py sets the specific 'modus' for each run.
-    if "buy" in modus_list and "sell" not in modus_list:  # Only buy mode specified
-        param_grid.pop(
-            "sell_liquidation_threshold_usd", None
-        )  # Remove sell threshold if present
-    elif "sell" in modus_list and "buy" not in modus_list:  # Only sell mode specified
-        param_grid.pop(
-            "buy_liquidation_threshold_usd", None
-        )  # Remove buy threshold if present
-    # else ('both' is present or list is empty/invalid): keep both thresholds initially
 
-    # Handle exit_on_opposite_signal optimization based on modus and strategy config flag
-    # Check strategy config first for the optimization flag
-    # Handle exit_on_opposite_signal optimization based on modus and main config flag
     optimize_exit_flag = main_optimization_settings.get(
         "optimize_exit_signal_if_modus_both", False
     )
