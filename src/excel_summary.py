@@ -12,6 +12,8 @@ from src.excel_formatting import _save_dataframe_to_excel
 # Import Dynaconf settings and loader from optimizer_config
 from src.optimizer_config import settings, load_strategy_config
 
+import pandas as pd
+
 
 def _get_backtest_params_from_config(active_strategy: str) -> Dict[str, Any]:
     """Extract backtest and optimization parameters using Dynaconf settings.
@@ -73,6 +75,78 @@ def _get_global_backtest_params_from_config() -> Dict[str, Any]:
     }
 
 
+def _process_and_sort_results_df(
+    results_list: List[Dict[str, Any]], summary_type: str
+) -> pd.DataFrame:
+    """
+    Processes a list of result dictionaries into a DataFrame and sorts it.
+
+    Args:
+        results_list: List of result dictionaries.
+        summary_type: Type of summary ('symbol', 'strategy', or 'overall') for logging.
+
+    Returns:
+        Processed and sorted DataFrame.
+    """
+    if not results_list:
+        print(f"\nNo results for {summary_type} summary to process.")
+        return pd.DataFrame()
+
+    results_df = _process_results_to_dataframe(results_list)
+
+    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
+        results_df = results_df.sort_values(
+            by=["symbol", "Return [%]"], ascending=[True, False]
+        )
+    elif "symbol" in results_df.columns:
+        results_df = results_df.sort_values(by=["symbol"], ascending=True)
+    else:
+        print(
+            f"WARNING: Could not sort {summary_type} summary. 'symbol' column not found."
+        )
+
+    return results_df
+
+
+def _generate_excel_filepath(
+    summary_type: str, active_strategy: str = None, symbol: str = None
+) -> str:
+    """
+    Generates the Excel file path based on the summary type and context.
+
+    Args:
+        summary_type: Type of summary ('symbol', 'strategy', or 'overall').
+        active_strategy: The name of the strategy (required for 'symbol' and 'strategy').
+        symbol: The specific symbol (required for 'symbol').
+
+    Returns:
+        The generated Excel file path.
+    """
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if summary_type == "overall":
+        output_dir = "strategies_config"
+        excel_filename = f"{timestamp_str}_overall_optimization_summary.xlsx"
+    elif summary_type == "strategy":
+        if not active_strategy:
+            raise ValueError(
+                "active_strategy must be provided for strategy summary type."
+            )
+        output_dir = os.path.join("strategies_config", active_strategy, "results")
+        excel_filename = f"{timestamp_str}_{active_strategy}_summary_.xlsx"
+    elif summary_type == "symbol":
+        if not active_strategy or not symbol:
+            raise ValueError(
+                "active_strategy and symbol must be provided for symbol summary type."
+            )
+        output_dir = os.path.join("strategies_config", active_strategy, "results")
+        excel_filename = f"{symbol}_{timestamp_str}.xlsx"
+    else:
+        raise ValueError(f"Unknown summary_type: {summary_type}")
+
+    return os.path.join(output_dir, excel_filename)
+
+
 def generate_symbol_summary_excel(
     symbol_run_results: List[Dict[str, Any]],
     active_strategy: str,
@@ -87,26 +161,14 @@ def generate_symbol_summary_excel(
         active_strategy: The name of the strategy being run.
         symbol: The specific symbol these results belong to.
     """
-    if not symbol_run_results:
+    results_df = _process_and_sort_results_df(symbol_run_results, "symbol")
+
+    if results_df.empty:
         print(f"\nNo results for symbol {symbol} to save to Excel.")
         return
 
-    results_df = _process_results_to_dataframe(symbol_run_results)
-
-    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
-        results_df = results_df.sort_values(
-            by=["symbol", "Return [%]"], ascending=[True, False]
-        )
-    elif "symbol" in results_df.columns:
-        results_df = results_df.sort_values(by=["symbol"], ascending=True)
-    else:
-        print("WARNING: Could not sort symbol summary. 'symbol' column not found.")
-
-    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = os.path.join("strategies_config", active_strategy)
-    excel_filename = os.path.join(
-        output_dir,
-        f"{symbol}_{timestamp_str}.xlsx",
+    excel_filename = _generate_excel_filepath(
+        "symbol", active_strategy=active_strategy, symbol=symbol
     )
 
     params = _get_backtest_params_from_config(active_strategy)
@@ -128,25 +190,14 @@ def save_summary_to_excel(
         active_strategy: The name of the strategy being run.
         target_metrics_list: The list of target metrics used for optimization.
     """
-    if not all_run_results:
+    results_df = _process_and_sort_results_df(all_run_results, "strategy")
+
+    if results_df.empty:
         print("\nNo consolidated results to save to Excel.")
         return
 
-    results_df = _process_results_to_dataframe(all_run_results)
-
-    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
-        results_df = results_df.sort_values(
-            by=["symbol", "Return [%]"], ascending=[True, False]
-        )
-    elif "symbol" in results_df.columns:
-        results_df = results_df.sort_values(by=["symbol"], ascending=True)
-    else:
-        print("WARNING: Could not sort strategy summary. 'symbol' column not found.")
-
-    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = os.path.join("strategies_config", active_strategy)
-    excel_filename = os.path.join(
-        output_dir, f"{timestamp_str}_{active_strategy}_summary_.xlsx"
+    excel_filename = _generate_excel_filepath(
+        "strategy", active_strategy=active_strategy
     )
     params = _get_backtest_params_from_config(active_strategy)
 
@@ -164,26 +215,13 @@ def generate_overall_summary_excel(
         all_strategies_results: A list of dictionaries containing results
                                  from all strategies and symbols.
     """
-    if not all_strategies_results:
+    results_df = _process_and_sort_results_df(all_strategies_results, "overall")
+
+    if results_df.empty:
         print("\nNo overall results to save to consolidated Excel.")
         return
 
-    results_df = _process_results_to_dataframe(all_strategies_results)
-
-    if "symbol" in results_df.columns and "Return [%]" in results_df.columns:
-        results_df = results_df.sort_values(
-            by=["symbol", "Return [%]"], ascending=[True, False]
-        )
-    elif "symbol" in results_df.columns:
-        results_df = results_df.sort_values(by=["symbol"], ascending=True)
-    else:
-        print("WARNING: Could not sort overall summary. 'symbol' column not found.")
-
-    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = "strategies_config"
-    excel_filename = os.path.join(
-        output_dir, f"{timestamp_str}_overall_optimization_summary.xlsx"
-    )
+    excel_filename = _generate_excel_filepath("overall")
 
     print(f"Saving overall summary to: {excel_filename}")
     params = _get_global_backtest_params_from_config()
