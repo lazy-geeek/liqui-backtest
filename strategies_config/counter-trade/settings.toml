@@ -2,7 +2,7 @@
 average_liquidation_multiplier = 4.0
 stop_loss_percentage = 3.0
 take_profit_percentage = 4.0
-exit_on_opposite_signal = false
+exit_on_opposite_signal = true
 cooldown_candles = 1
 liquidation_aggregation_minutes = 5
 average_lookback_period_days = 14
@@ -35,7 +35,7 @@ step = 1
 average_liquidation_multiplier = 4.0
 stop_loss_percentage = 3.0
 take_profit_percentage = 4.0
-exit_on_opposite_signal = false
+exit_on_opposite_signal = true
 cooldown_candles = 1
 liquidation_aggregation_minutes = 5
 average_lookback_period_days = 14

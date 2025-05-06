@@ -100,18 +100,19 @@ def build_param_grid(
 
     # Adjust param_grid based on modus (primarily for removing unnecessary thresholds)
     # Adjust param_grid based on the current mode and optimization settings
+    # Read the new flag
     optimize_exit_flag = main_optimization_settings.get(
-        "optimize_exit_signal_if_modus_both", False
+        "optimize_exit_on_opposite_signal", False  # New key
     )
 
     # Read fixed/default value from strategy_parameters in strategy config
     fixed_exit_value = strategy_defaults.get("exit_on_opposite_signal", False)
 
-    # Only optimize exit_on_opposite_signal if the current mode is 'both' AND the flag is set
-    if current_mode == "both" and optimize_exit_flag:
+    # Optimize exit_on_opposite_signal if the flag is set, regardless of modus
+    if optimize_exit_flag:
         param_grid["exit_on_opposite_signal"] = [False, True]
     else:
-        # Otherwise, use the fixed value (either from strategy defaults or potentially overridden)
+        # Otherwise, use the fixed value
         param_grid["exit_on_opposite_signal"] = fixed_exit_value
 
     # Add the current mode to the parameter grid

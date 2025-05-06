@@ -49,8 +49,8 @@ def _get_backtest_params_from_config(
         "average_lookback_period_days": strat_params.get(
             "average_lookback_period_days"  # Removed default None
         ),
-        "optimize_exit_signal_if_modus_both": opt_settings.get(
-            "optimize_exit_signal_if_modus_both"
+        "optimize_exit_on_opposite_signal": opt_settings.get(  # Renamed key
+            "optimize_exit_on_opposite_signal"  # Renamed key
         ),
         # Note: Target metrics are global, not per-strategy for this function's purpose
     }
@@ -71,8 +71,8 @@ def _get_global_backtest_params_from_config() -> Dict[str, Any]:
         "slippage_percentage_per_side": bt.get("slippage_percentage_per_side"),
         "position_size_fraction": bt.get("position_size_fraction"),
         "leverage": bt.get("leverage"),
-        "optimize_exit_signal_if_modus_both": opt.get(
-            "optimize_exit_signal_if_modus_both"
+        "optimize_exit_on_opposite_signal": opt.get(  # Renamed key
+            "optimize_exit_on_opposite_signal"  # Renamed key
         ),
         "target_metrics": opt.get("target_metrics"),
     }
