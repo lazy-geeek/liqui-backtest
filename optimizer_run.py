@@ -29,7 +29,6 @@ if __name__ == "__main__":
     from backtesting import Backtest
 
     # Backtest.Pool = multiprocessing.Pool # Commented out to potentially disable multiprocessing pool
-    start_time = time.time()
     check_dependencies()
     print("--- Starting Parameter Optimization ---")
 
@@ -76,6 +75,7 @@ if __name__ == "__main__":
     # --- Delete existing Excel files from the original strategies_config folder ---
     cleanup_previous_excel_results()
 
+    start_time = time.time()
     # Execute the main optimization loops
     all_strategies_results = execute_optimization_loops(configs, backtest_settings)
 
