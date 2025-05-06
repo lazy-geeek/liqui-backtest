@@ -18,8 +18,8 @@ debug_mode = false
 
 [default.optimization_settings]
 optimize_exit_signal_if_modus_both = true
-target_metrics = ["Sharpe Ratio", "Sortino Ratio", "Return (Ann.) [%]"]
-active_strategies = ["follow-the-flow", "counter-trade"]
+target_metrics = ["Sortino Ratio"]
+active_strategies = ["counter-trade"]
 symbols = [
     "ETHUSDT",
     "SOLUSDT",
@@ -31,7 +31,7 @@ symbols = [
     "LINKUSDT",
     "DOGEUSDT",
 ]
-modus = ["buy", "sell", "both"]
+modus = ["both"]
 
 
 [dev]

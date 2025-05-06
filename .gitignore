@@ -191,4 +191,6 @@ optimization_best_params.json
 *.xlsx
 **/config *.json
 memory-bank/
+*.Identifier
+
 
