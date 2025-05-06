@@ -61,70 +61,110 @@ class CounterTradeStrategy(Strategy):
         """
         Define the logic executed at each data point (candle).
         """
-
         super().next()
 
-        # --- Cooldown Management ---
+        # --- Cooldown Countdown ---
         trade_ready_after_cooldown = False
         if self.signal_cooldown_counter > 0:
             self.signal_cooldown_counter -= 1
             if self.signal_cooldown_counter == 0 and self.pending_trade_type:
-                # Cooldown just finished, mark trade as ready
                 trade_ready_after_cooldown = True
 
-        # --- Position Check ---
-        # Enforce strict single-position policy: if any position is open, do nothing
-        # (Unless executing the trade that just finished cooldown)
-        if self.position and not trade_ready_after_cooldown:
-            return
+        # --- Handle Existing Position: Exit or Continue ---
+        if self.position:
+            if self.exit_on_opposite_signal:
+                if self.position.is_long:
+                    # CT Long entered on high SELL liquidations. Opposite is high BUY liquidations.
+                    # Calculate only what's needed to detect high BUY liquidations.
+                    buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
+                    buy_threshold = (
+                        self.avg_buy_liq[-1] * self.average_liquidation_multiplier
+                    )
+                    opposite_signal_for_long = (
+                        buy_liq_agg > buy_threshold
+                    )  # This is the "sell entry signal" for CT
+                    if opposite_signal_for_long:
+                        self.position.close()
+                        self.pending_trade_type = None
+                        self.signal_cooldown_counter = 0
+                        return
+                elif self.position.is_short:
+                    # CT Short entered on high BUY liquidations. Opposite is high SELL liquidations.
+                    # Calculate only what's needed to detect high SELL liquidations.
+                    sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
+                    sell_threshold = (
+                        self.avg_sell_liq[-1] * self.average_liquidation_multiplier
+                    )
+                    opposite_signal_for_short = (
+                        sell_liq_agg > sell_threshold
+                    )  # This is the "buy entry signal" for CT
+                    if opposite_signal_for_short:
+                        self.position.close()
+                        self.pending_trade_type = None
+                        self.signal_cooldown_counter = 0
+                        return
+            # If in position, but (exit_on_opposite_signal is False OR (it's True but no opposite signal occurred)):
+            return  # Do nothing further
 
-        current_price = self.data.Close[-1]
-        buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
-        sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
-        buy_threshold = self.avg_buy_liq[-1] * self.average_liquidation_multiplier
-        sell_threshold = self.avg_sell_liq[-1] * self.average_liquidation_multiplier
-
-        buy_signal = buy_liq_agg > buy_threshold
-        sell_signal = sell_liq_agg > sell_threshold
-
-        # --- Trade Execution (After Cooldown) ---
-        # Execute trade if cooldown just finished
-        if trade_ready_after_cooldown:
+        # --- Trade Execution (After Cooldown, if no position exists) ---
+        if trade_ready_after_cooldown:  # Implies no position currently
+            current_price = self.data.Close[-1]
             if self.pending_trade_type == "buy" and (
                 self.modus == "buy" or self.modus == "both"
             ):
                 sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                size_fraction = self.pos_size_frac  # Use the passed-in value
-                self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
-                self.pending_trade_type = None  # Reset pending trade
-
+                self.buy(size=self.pos_size_frac, sl=sl_price, tp=tp_price)
+                self.pending_trade_type = None  # Clear pending trade
+                return
             elif self.pending_trade_type == "sell" and (
                 self.modus == "sell" or self.modus == "both"
             ):
                 sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                 tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                size_fraction = self.pos_size_frac  # Use the passed-in value
-                self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
-                self.pending_trade_type = None  # Reset pending trade
+                self.sell(size=self.pos_size_frac, sl=sl_price, tp=tp_price)
+                self.pending_trade_type = None  # Clear pending trade
+                return
+            self.pending_trade_type = None  # Fallback to clear pending trade
 
-            # If trade executed, we are done for this candle
-            return  # Important to prevent immediate new signal detection
-
-        # --- New Signal Detection (Only if not in cooldown and no position) ---
+        # --- New Signal Detection (Only if no position, not in cooldown, and no trade from cooldown) ---
         if not self.position and self.signal_cooldown_counter <= 0:
-            # Recalculate signals only if needed (no position, no cooldown)
-            buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
-            sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
-            buy_threshold = self.avg_buy_liq[-1] * self.average_liquidation_multiplier
-            sell_threshold = self.avg_sell_liq[-1] * self.average_liquidation_multiplier
-            buy_signal = buy_liq_agg > buy_threshold
-            sell_signal = sell_liq_agg > sell_threshold
+            # current_price is not needed for signal detection itself, only for SL/TP if a trade is made later.
+            # It will be fetched when/if a trade is actually executed from cooldown.
 
-            if buy_signal and (self.modus == "buy" or self.modus == "both"):
-                self.signal_cooldown_counter = self.cooldown_candles
-                self.pending_trade_type = "buy"
+            can_trigger_buy_cooldown = self.modus == "buy" or self.modus == "both"
+            can_trigger_sell_cooldown = self.modus == "sell" or self.modus == "both"
 
-            elif sell_signal and (self.modus == "sell" or self.modus == "both"):
-                self.signal_cooldown_counter = self.cooldown_candles
-                self.pending_trade_type = "sell"
+            # Attempt to trigger BUY cooldown if allowed and signal occurs
+            if can_trigger_buy_cooldown:
+                # For CT buy entry: check high SELL liquidations
+                sell_liq_agg_for_buy_entry = self.data.Liq_Sell_Aggregated[-1]
+                sell_threshold_for_buy_entry = (
+                    self.avg_sell_liq[-1] * self.average_liquidation_multiplier
+                )
+                ct_buy_entry_signal = (
+                    sell_liq_agg_for_buy_entry > sell_threshold_for_buy_entry
+                )
+
+                if ct_buy_entry_signal:
+                    self.signal_cooldown_counter = self.cooldown_candles
+                    self.pending_trade_type = "buy"
+                    return  # Cooldown initiated, nothing more this candle
+
+            # Attempt to trigger SELL cooldown if allowed, signal occurs, AND no buy cooldown was just initiated
+            if (
+                can_trigger_sell_cooldown and self.pending_trade_type is None
+            ):  # Ensure buy cooldown wasn't just set
+                # For CT sell entry: check high BUY liquidations
+                buy_liq_agg_for_sell_entry = self.data.Liq_Buy_Aggregated[-1]
+                buy_threshold_for_sell_entry = (
+                    self.avg_buy_liq[-1] * self.average_liquidation_multiplier
+                )
+                ct_sell_entry_signal = (
+                    buy_liq_agg_for_sell_entry > buy_threshold_for_sell_entry
+                )
+
+                if ct_sell_entry_signal:
+                    self.signal_cooldown_counter = self.cooldown_candles
+                    self.pending_trade_type = "sell"
+                    return  # Cooldown initiated, nothing more this candle

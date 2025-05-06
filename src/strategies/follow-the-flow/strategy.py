@@ -58,34 +58,70 @@ class FollowTheFlowStrategy(Strategy):
         try:
             super().next()
 
-            # Enforce strict single-position policy: if any position is open, do nothing
             if self.position:
-                return
+                if self.exit_on_opposite_signal:
+                    if self.position.is_long:
+                        # For a LONG position, the opposite is a SELL signal.
+                        # Calculate only what's needed for the SELL signal.
+                        sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
+                        sell_threshold = (
+                            self.avg_sell_liq[-1] * self.average_liquidation_multiplier
+                        )
+                        opposite_sell_signal = sell_liq_agg > sell_threshold
+                        if opposite_sell_signal:
+                            self.position.close()
+                            return  # Exit and do nothing else
+                    elif self.position.is_short:
+                        # For a SHORT position, the opposite is a BUY signal.
+                        # Calculate only what's needed for the BUY signal.
+                        buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
+                        buy_threshold = (
+                            self.avg_buy_liq[-1] * self.average_liquidation_multiplier
+                        )
+                        opposite_buy_signal = buy_liq_agg > buy_threshold
+                        if opposite_buy_signal:
+                            self.position.close()
+                            return  # Exit and do nothing else
+                # If in position, but (exit_on_opposite_signal is False OR (it's True but no opposite signal occurred)):
+                return  # Do nothing further on this candle if still in a position
 
-            current_price = self.data.Close[-1]
-            buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
-            sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
-            buy_threshold = self.avg_buy_liq[-1] * self.average_liquidation_multiplier
-            sell_threshold = self.avg_sell_liq[-1] * self.average_liquidation_multiplier
-
-            buy_signal = buy_liq_agg > buy_threshold
-            sell_signal = sell_liq_agg > sell_threshold
-
-            # --- Exit on Opposite Signal Logic ---
             # --- Entry Logic ---
-            # (Only proceed if no position exists OR if exit logic didn't trigger)
-            if not self.position:
-                if buy_signal and (self.modus == "buy" or self.modus == "both"):
+            # (Only reached if NO position is open)
+            current_price = self.data.Close[-1]
+
+            # Determine if we can buy or sell based on modus
+            can_buy = self.modus == "buy" or self.modus == "both"
+            can_sell = self.modus == "sell" or self.modus == "both"
+
+            # Attempt Buy Entry if allowed and signal occurs
+            if can_buy:
+                buy_liq_agg = self.data.Liq_Buy_Aggregated[-1]
+                buy_threshold = (
+                    self.avg_buy_liq[-1] * self.average_liquidation_multiplier
+                )
+                entry_buy_signal = buy_liq_agg > buy_threshold
+
+                if entry_buy_signal:
                     sl_price = current_price * (1 - self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 + self.take_profit_percentage / 100.0)
-                    size_fraction = self.pos_size_frac  # Use the passed-in value
-                    self.buy(size=size_fraction, sl=sl_price, tp=tp_price)
+                    self.buy(size=self.pos_size_frac, sl=sl_price, tp=tp_price)
+                    return  # Exit after attempting a trade
 
-                elif sell_signal and (self.modus == "sell" or self.modus == "both"):
+            # Attempt Sell Entry if allowed, signal occurs, AND no buy was just made
+            if (
+                can_sell and not self.position
+            ):  # Check not self.position in case a buy was just executed
+                sell_liq_agg = self.data.Liq_Sell_Aggregated[-1]
+                sell_threshold = (
+                    self.avg_sell_liq[-1] * self.average_liquidation_multiplier
+                )
+                entry_sell_signal = sell_liq_agg > sell_threshold
+
+                if entry_sell_signal:
                     sl_price = current_price * (1 + self.stop_loss_percentage / 100.0)
                     tp_price = current_price * (1 - self.take_profit_percentage / 100.0)
-                    size_fraction = self.pos_size_frac  # Use the passed-in value
-                    self.sell(size=size_fraction, sl=sl_price, tp=tp_price)
+                    self.sell(size=self.pos_size_frac, sl=sl_price, tp=tp_price)
+                    return  # Exit after attempting a trade
 
         except Exception as e:
             raise
