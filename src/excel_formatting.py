@@ -58,7 +58,7 @@ def _save_dataframe_to_excel(
                     params_sheet.column_dimensions[col_letter].width = adjusted_width
 
             # Freeze header row
-            worksheet.freeze_panes = "A2"
+            worksheet.freeze_panes = "C2"
 
             # Auto-size columns
             for column_cells in worksheet.columns:
