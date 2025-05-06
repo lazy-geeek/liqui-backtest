@@ -19,6 +19,7 @@ from src.utils import (
     configure_warnings,
     print_optimization_settings,
     cleanup_previous_excel_results,
+    archive_strategies_config,  # Add this
 )
 
 if __name__ == "__main__":
@@ -69,7 +70,10 @@ if __name__ == "__main__":
     optimization_settings = configs["main_settings"].get("optimization_settings", {})
     print_optimization_settings(backtest_settings, optimization_settings)
 
-    # --- Delete existing Excel files ---
+    # --- Archive strategies_config content before cleaning up Excel files ---
+    archive_strategies_config()  # Add this call
+
+    # --- Delete existing Excel files from the original strategies_config folder ---
     cleanup_previous_excel_results()
 
     # Execute the main optimization loops

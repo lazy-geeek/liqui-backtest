@@ -8,6 +8,7 @@ import glob
 import time
 from typing import Dict, Any, List
 from datetime import timedelta  # Import timedelta
+from datetime import datetime  # For timestamp
 
 # Add necessary imports for the functions being moved
 import pandas as pd
@@ -170,4 +171,52 @@ def cleanup_previous_excel_results():
             print("Deletion cancelled by user.")
     else:
         print("\nNo existing Excel files found in 'strategies_config/' subfolders.")
+    print("-" * 30)
+
+
+def archive_strategies_config(
+    base_archive_dir: str = "archive", source_dir: str = "strategies_config"
+):
+    """
+    Copies the contents of the source directory into a timestamped subfolder
+    within the base archive directory. The original source directory remains unchanged.
+    """
+    if not os.path.exists(source_dir) or not os.listdir(source_dir):
+        print(
+            f"Source directory '{source_dir}' is empty or does not exist. Nothing to copy."
+        )
+        print("-" * 30)
+        return
+
+    if not os.path.exists(base_archive_dir):
+        try:
+            os.makedirs(base_archive_dir)
+            print(f"Created base archive directory: '{base_archive_dir}'")
+        except OSError as e:
+            print(f"Error creating base archive directory '{base_archive_dir}': {e}")
+            print("-" * 30)
+            return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_path_for_copy = os.path.join(base_archive_dir, timestamp)
+
+    print(
+        f"Copying contents of '{source_dir}' to a new archive folder inside '{base_archive_dir}' (will be named '{timestamp}')..."
+    )
+
+    try:
+        shutil.copytree(source_dir, archive_path_for_copy)
+        copied_items_count = len(os.listdir(source_dir))
+        print(
+            f"Successfully copied {copied_items_count} item(s) from '{source_dir}' to '{archive_path_for_copy}'."
+        )
+    except OSError as e:
+        print(
+            f"Error during copytree from '{source_dir}' to '{archive_path_for_copy}': {e}"
+        )
+    except Exception as e:
+        print(
+            f"An unexpected error occurred while copying '{source_dir}' to '{archive_path_for_copy}': {e}"
+        )
+
     print("-" * 30)

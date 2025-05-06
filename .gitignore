@@ -192,5 +192,5 @@ optimization_best_params.json
 **/config *.json
 memory-bank/
 *.Identifier
-
+archive/
 
