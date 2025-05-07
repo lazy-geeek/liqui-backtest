@@ -22,7 +22,7 @@ def check_dependencies():
         "dynaconf[toml]": "dynaconf",
     }  # Mapping for packages with different import names
     try:
-        with open("requirements.txt", "r") as f:
+        with open("../requirements.txt", "r") as f:
             requirements = f.readlines()
         packages = [
             line.strip().split("==")[0]

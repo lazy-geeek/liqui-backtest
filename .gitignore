@@ -177,9 +177,9 @@ todos.md
 backtest*.html
 PLAN.md
 
-cache/
+backtesting_py/cache/
 optimization_results/
-backtest_results/
+backtesting_py/backtest_results/
 
 *.csv
 optimization_plan.md
@@ -192,5 +192,5 @@ optimization_best_params.json
 **/config *.json
 memory-bank/
 *.Identifier
-archive/
+backtesting_py/archive/
 archiv/

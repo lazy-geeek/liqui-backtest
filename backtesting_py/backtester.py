@@ -14,7 +14,7 @@ import importlib
 
 # Import Dynaconf and config loading functions
 from dynaconf import Dynaconf
-from src.optimizer_config import (
+from .src.optimizer_config import (
     load_strategy_config,
 )  # Import the strategy config loader
 
@@ -30,7 +30,7 @@ warnings.filterwarnings(
 )
 
 # Import our custom modules
-from src import data_fetcher
+from .src import data_fetcher
 
 
 # Initialize Dynaconf globally to load settings from settings.toml

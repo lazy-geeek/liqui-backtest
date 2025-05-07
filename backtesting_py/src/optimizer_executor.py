@@ -10,13 +10,13 @@ from backtesting import Backtest
 import pandas as pd
 
 # Import necessary modules from src
-from src import data_fetcher
-from src.optimizer_config import (
+from . import data_fetcher
+from .optimizer_config import (
     load_strategy_config,
 )
-from src.optimizer_params import build_param_grid, calculate_total_combinations
-from src.optimizer_results import process_and_save_results
-from src.excel_summary import (
+from .optimizer_params import build_param_grid, calculate_total_combinations
+from .optimizer_results import process_and_save_results
+from .excel_summary import (
     generate_symbol_summary_excel,
     save_summary_to_excel,
     generate_overall_summary_excel,
