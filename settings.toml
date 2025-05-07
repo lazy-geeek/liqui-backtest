@@ -53,7 +53,7 @@ backtest_modus = "both"
 debug_mode = false
 
 [dev.optimization_settings]
-optimize_exit_on_opposite_signal = false
+optimize_exit_on_opposite_signal = true
 target_metrics = ["Sharpe Ratio", "Sortino Ratio"]
 active_strategies = ["follow-the-flow", "counter-trade"]
 symbols = ["BTCUSDT", "SUIUSDT"]
