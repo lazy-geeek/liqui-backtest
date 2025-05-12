@@ -3,7 +3,7 @@ from pathlib import Path
 from dynaconf import Dynaconf
 
 # Assuming ft_config_loader is in the same directory or accessible via PYTHONPATH
-import ft_config_loader
+from . import ft_config_loader
 
 # Default path for the generated Freqtrade config, relative to APP_BASE_DIR
 DEFAULT_GENERATED_CONFIG_PATH = (

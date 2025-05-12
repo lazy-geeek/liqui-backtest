@@ -6,33 +6,13 @@ import argparse
 from pathlib import Path
 import shutil
 
-import subprocess
-import json
-import os
 import sys
-import argparse
 from pathlib import Path
-import shutil
 
-# Add ft_user_data/strategies to sys.path to allow Freqtrade to find the strategy and src modules
-ft_user_data_strategies = Path("freqtrade_app/ft_user_data/strategies")
-sys.path.insert(0, str(ft_user_data_strategies))
+sys.path.append(str(Path(__file__).parent.parent))
 
-# Assuming ft_config_loader and ft_config_generator are now in ft_user_data/strategies/src/
-# Adjust import paths if necessary based on execution context.
-# If running `python freqtrade_app/ft_runner.py` from project root,
-# `freqtrade_app` needs to be in PYTHONPATH or use relative imports carefully.
-
-try:
-    from ft_user_data.strategies.src import ft_config_loader
-    from ft_user_data.strategies.src import ft_config_generator
-except ImportError as e:
-    print(f"Error importing ft_config_loader or ft_config_generator: {e}")
-    print(
-        f"Ensure that {ft_user_data_strategies / 'src'} is accessible and contains these modules."
-    )
-    print(f"Current sys.path: {sys.path}")
-    sys.exit(1)
+from freqtrade_app.ft_user_data.strategies.src import ft_config_loader
+from freqtrade_app.ft_user_data.strategies.src import ft_config_generator
 
 
 def run_subprocess_command(command_list, working_dir=None, extra_env=None):
@@ -128,7 +108,9 @@ def main():
 
     # 3. Set LIQUIDATION_API_BASE_URL environment variable
     print("\n3. Setting LIQUIDATION_API_BASE_URL environment variable...")
-    api_base_url = global_settings.api_settings.get("liquidation_api_base_url")
+    api_base_url = global_settings.get("api_settings", {}).get(
+        "liquidation_api_base_url"
+    )
     if api_base_url:
         os.environ["LIQUIDATION_API_BASE_URL"] = api_base_url
         print(f"LIQUIDATION_API_BASE_URL set to: {api_base_url}")
@@ -139,10 +121,12 @@ def main():
 
     # 4. Ensure User Data Directory Structure
     print("\n4. Ensuring user data directory structure...")
-    user_data_dir_name = global_settings.freqtrade_config.get(
+    user_data_dir_name = global_settings.get("freqtrade_config", {}).get(
         "user_data_dir", "ft_user_data"
     )
-    exchange_name = global_settings.freqtrade_config.get("exchange_name", "binance")
+    exchange_name = global_settings.get("freqtrade_config", {}).get(
+        "exchange_name", "binance"
+    )
 
     # Path should be relative to APP_BASE_DIR if Freqtrade is run from there
     # Freqtrade's user_data_dir in config.json is relative to CWD of freqtrade process.
@@ -185,9 +169,9 @@ def main():
     project_root = APP_BASE_DIR.parent
     current_pythonpath = os.environ.get("PYTHONPATH", "")
     new_pythonpath = (
-        f"{project_root}{os.pathsep}{ft_user_data_strategies}{os.pathsep}{current_pythonpath}"
+        f"{project_root}{os.pathsep}{strategies_path}{os.pathsep}{current_pythonpath}"
         if current_pythonpath
-        else f"{project_root}{os.pathsep}{ft_user_data_strategies}"
+        else f"{project_root}{os.pathsep}{strategies_path}"
     )
     custom_env_for_freqtrade = {"PYTHONPATH": new_pythonpath}
 
