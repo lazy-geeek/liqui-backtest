@@ -99,47 +99,6 @@ class FollowTheFlowStrategy(IStrategy):
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
-        try:
-            # Attempt to load LIQUIDATION_API_BASE_URL from environment (set by ft_runner.py)
-            self._liquidation_api_url = os.environ.get("LIQUIDATION_API_BASE_URL")
-            if not self._liquidation_api_url:
-                # Fallback: try to load from Dynaconf global settings if available in user_data
-                # This assumes ft_runner.py has placed it there via ft_config_generator.py
-                # (This part is more complex and depends on how ft_config_generator structures user_data)
-                # For now, we primarily rely on the environment variable.
-                if (
-                    "user_data" in self.config
-                    and "api_settings" in self.config["user_data"]
-                ):
-                    self._liquidation_api_url = self.config["user_data"][
-                        "api_settings"
-                    ].get("liquidation_api_base_url")
-
-                if not self._liquidation_api_url:  # Final fallback if still not found
-                    print(
-                        "WARNING: LIQUIDATION_API_BASE_URL not found in env or config. Liquidation fetching may fail."
-                    )
-                    # Try to load via ft_config_loader as a last resort (might not work in Freqtrade's isolated strategy execution)
-                    try:
-                        global_settings = get_global_settings(
-                            env=os.environ.get("FTAPP_ENV", "default")
-                        )
-                        self._liquidation_api_url = global_settings.api_settings.get(
-                            "liquidation_api_base_url"
-                        )
-                        if self._liquidation_api_url:
-                            print(
-                                f"Loaded LIQUIDATION_API_BASE_URL from ft_config_loader: {self._liquidation_api_url}"
-                            )
-                        else:
-                            print(
-                                "Still could not load LIQUIDATION_API_BASE_URL via ft_config_loader."
-                            )
-                    except Exception as e:
-                        print(f"Error loading global settings for API URL: {e}")
-
-        except Exception as e:
-            print(f"Error during __init__ setting API URL: {e}")
 
         # Dynamically set stoploss and ROI based on loaded parameters
         self.stoploss = -(self.stop_loss_percentage.value / 100.0)

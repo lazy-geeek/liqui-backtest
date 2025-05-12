@@ -106,19 +106,6 @@ def main():
         print(f"Error generating Freqtrade config.json: {e}")
         sys.exit(1)
 
-    # 3. Set LIQUIDATION_API_BASE_URL environment variable
-    print("\n3. Setting LIQUIDATION_API_BASE_URL environment variable...")
-    api_base_url = global_settings.get("api_settings", {}).get(
-        "liquidation_api_base_url"
-    )
-    if api_base_url:
-        os.environ["LIQUIDATION_API_BASE_URL"] = api_base_url
-        print(f"LIQUIDATION_API_BASE_URL set to: {api_base_url}")
-    else:
-        print(
-            "Warning: LIQUIDATION_API_BASE_URL not found in settings. Liquidation fetching in strategy might fail."
-        )
-
     # 4. Ensure User Data Directory Structure
     print("\n4. Ensuring user data directory structure...")
     user_data_dir_name = global_settings.get("freqtrade_config", {}).get(

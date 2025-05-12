@@ -89,32 +89,3 @@ def generate_freqtrade_config_json(
         json.dump(config_data, f, indent=4)
 
     return output_path
-
-
-if __name__ == "__main__":
-    # Example usage:
-    print(f"Application base directory: {ft_config_loader.APP_BASE_DIR}")
-    print(f"Default generated config path: {DEFAULT_GENERATED_CONFIG_PATH}")
-
-    # Load settings for a specific environment, e.g., "dev"
-    current_env = "dev"  # or "default"
-    global_conf = ft_config_loader.get_global_settings(env=current_env)
-
-    print(f"\nLoaded global settings for environment: '{current_env}'")
-    print(f"  Exchange from settings: {global_conf.freqtrade_config.exchange_name}")
-    print(
-        f"  User data dir from settings: {global_conf.freqtrade_config.user_data_dir}"
-    )
-    print(
-        f"  Strategy name from settings: {global_conf.backtest_settings.strategy_name}"
-    )
-    print(f"  Timerange from settings: {global_conf.backtest_settings.timerange}")
-
-    # Generate the config.json
-    generated_file_path = generate_freqtrade_config_json(global_conf)
-    print(f"\nFreqtrade config.json generated successfully at: {generated_file_path}")
-
-    # Verify content (optional)
-    with open(generated_file_path, "r") as f:
-        print("\nContent of generated config.json:")
-        print(f.read())
