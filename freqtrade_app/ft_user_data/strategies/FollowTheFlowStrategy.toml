@@ -1,3 +1,5 @@
+[default]
+
 [default.strategy_parameters]
 average_liquidation_multiplier = 4.0
 stop_loss_percentage = 1.0
@@ -6,6 +8,8 @@ exit_on_opposite_signal = false
 modus = "both"  # "buy", "sell", or "both"
 liquidation_aggregation_minutes = 5
 average_lookback_period_days = 14
+
+[dev]
 
 # Dev environment - can override default strategy parameters
 [dev.strategy_parameters]

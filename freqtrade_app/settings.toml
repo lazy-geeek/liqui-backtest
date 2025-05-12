@@ -1,3 +1,5 @@
+[default]
+
 [default.freqtrade_config]
 exchange_name = "binance"
 stake_currency = "USDT"
@@ -14,6 +16,8 @@ strategy_name = "FollowTheFlowStrategy"
 
 [default.api_settings]
 
+[dev]
+
 # Dev environment - can override default settings
 [dev.freqtrade_config]
 exchange_name = "binance"
@@ -22,7 +26,7 @@ stake_amount = 1000
 dry_run = true
 dataformat_ohlcv = "feather"
 user_data_dir = "ft_user_data"
-pair_whitelist = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+pair_whitelist = ["BTC/USDT", "ETH/USDT"]
 
 [dev.backtest_settings]
 timeframe = "5m"

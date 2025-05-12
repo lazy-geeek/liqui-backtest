@@ -31,49 +31,26 @@ def get_global_settings(env: str = "default") -> Dynaconf:
     print(f"Active environment: {env}")
 
     settings = Dynaconf(
-        envvar_prefix="FTAPP",
+        # envvar_prefix="FTAPP",
         settings_files=[settings_file_path],
         environments=True,
-        load_dotenv=True,
-        env_switcher="FTAPP_ENV",
-        current_env=env,
+        # load_dotenv=True,
+        # env_switcher="FTAPP_ENV",
+        default_env="default",  # Default environment if none specified
     )
+
+    settings.setenv(env)  # Set the environment explicitly
 
     # Verify critical settings
     print("\nLoaded freqtrade_config settings:")
     print(f"exchange_name: {settings.get('freqtrade_config.exchange_name')}")
     print(f"pair_whitelist: {settings.get('freqtrade_config.pair_whitelist')}")
     print(f"stake_currency: {settings.get('freqtrade_config.stake_currency')}")
-
+    print(f"Current Dynaconf environment: {settings.current_env}")
+    print(
+        f"Loaded backtest_settings.timerange: {settings.get('backtest_settings.timerange')}"
+    )
     if not settings.get("freqtrade_config.pair_whitelist"):
         print("WARNING: No pair_whitelist found in settings!")
 
-    return settings
-
-
-def get_strategy_settings(strategy_name: str, env: str = "default") -> Dynaconf:
-    """
-    Loads settings for a specific strategy.
-
-    Args:
-        strategy_name: The name of the strategy (e.g., "follow-the-flow").
-        env: The environment to load (e.g., "default", "dev").
-
-    Returns:
-        A Dynaconf object with the loaded strategy settings.
-    """
-    strategy_settings_path = (
-        APP_BASE_DIR / "strategies_config" / strategy_name / "settings.toml"
-    )
-    if not strategy_settings_path.exists():
-        raise FileNotFoundError(
-            f"Strategy settings file not found: {strategy_settings_path}"
-        )
-
-    settings = Dynaconf(
-        settings_files=[strategy_settings_path],
-        environments=True,
-        env_switcher="FTAPP_STRATEGY_ENV",  # Separate env switcher for strategy if needed
-        current_env=env,
-    )
     return settings
