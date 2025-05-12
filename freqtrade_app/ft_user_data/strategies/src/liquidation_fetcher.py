@@ -30,7 +30,6 @@ def fetch_liquidations(
     symbol: str,
     start_dt: datetime,
     end_dt: datetime,
-    api_base_url: str,  # e.g., "https://fapi.binance.com/futures/data/allForceOrders"
     cache_dir: Path = DEFAULT_CACHE_DIR,
     # Binance API specific parameters (example)
     limit_per_request: int = 1000,  # Max records per API call for Binance allForceOrders
@@ -42,8 +41,6 @@ def fetch_liquidations(
         symbol: Trading symbol (e.g., "BTCUSDT" for Binance).
         start_dt: Start datetime (timezone-aware UTC).
         end_dt: End datetime (timezone-aware UTC).
-        api_base_url: The base URL for the liquidation data API endpoint.
-                      For Binance allForceOrders, this is typically "https://fapi.binance.com/futures/data/allForceOrders".
         cache_dir: Directory to store and retrieve cached data.
         limit_per_request: Maximum number of records to fetch per API call (API specific).
 
@@ -91,6 +88,10 @@ def fetch_liquidations(
 
     # Calculate the end time for mock data generation (first 10 minutes of the initial start_dt)
     mock_data_end_time_ms = int((start_dt + timedelta(minutes=10)).timestamp() * 1000)
+
+    api_base_url = os.getenv("LIQUIDATION_API_BASE_URL")
+    if not api_base_url:
+        raise ValueError("LIQUIDATION_API_BASE_URL environment variable is not set")
 
     print(
         f"Fetching liquidations for {symbol} from {start_dt} to {end_dt} from API: {api_base_url}"

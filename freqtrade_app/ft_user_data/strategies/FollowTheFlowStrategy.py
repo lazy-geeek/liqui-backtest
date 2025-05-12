@@ -94,9 +94,6 @@ class FollowTheFlowStrategy(IStrategy):
     # This will be set more dynamically in `bot_loop_start` if params are loaded.
     # startup_candle_count: int = 4032 # Placeholder, will be refined
 
-    # API URL for liquidations - to be fetched from config or environment
-    _liquidation_api_url = None
-
     def __init__(self, config: dict) -> None:
         super().__init__(config)
 
@@ -137,22 +134,6 @@ class FollowTheFlowStrategy(IStrategy):
         """
         Adds custom indicators to the dataframe.
         """
-        if self._liquidation_api_url is None:
-            print(
-                f"ERROR: Liquidation API URL is not set for strategy {self.get_strategy_name()}. Cannot fetch liquidations."
-            )
-            # Add empty columns to prevent crashes downstream if strategy expects them
-            for col in [
-                "Liq_Buy_Size",
-                "Liq_Sell_Size",
-                "Liq_Buy_Aggregated",
-                "Liq_Sell_Aggregated",
-                "Avg_Liq_Buy",
-                "Avg_Liq_Sell",
-            ]:
-                dataframe[col] = 0.0
-            return dataframe
-
         # --- Fetch Liquidation Data ---
         symbol_for_api = metadata["pair"].replace(
             "/", ""
@@ -183,11 +164,11 @@ class FollowTheFlowStrategy(IStrategy):
             f"Populate indicators for {metadata['pair']}: Fetching liquidations from {start_dt_utc} to {end_dt_utc}"
         )
 
+        global_settings = get_global_settings()
         raw_liq_df = liquidation_fetcher.fetch_liquidations(
             symbol=symbol_for_api,
             start_dt=start_dt_utc,
             end_dt=end_dt_utc,
-            api_base_url=self._liquidation_api_url,
             # cache_dir can be default or configured if needed
         )
 
