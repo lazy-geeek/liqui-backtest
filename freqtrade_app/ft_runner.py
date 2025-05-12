@@ -6,23 +6,31 @@ import argparse
 from pathlib import Path
 import shutil
 
-# Assuming ft_config_loader and ft_config_generator are in freqtrade_app/src/
+import subprocess
+import json
+import os
+import sys
+import argparse
+from pathlib import Path
+import shutil
+
+# Add ft_user_data/strategies to sys.path to allow Freqtrade to find the strategy and src modules
+ft_user_data_strategies = Path("freqtrade_app/ft_user_data/strategies")
+sys.path.insert(0, str(ft_user_data_strategies))
+
+# Assuming ft_config_loader and ft_config_generator are now in ft_user_data/strategies/src/
 # Adjust import paths if necessary based on execution context.
 # If running `python freqtrade_app/ft_runner.py` from project root,
 # `freqtrade_app` needs to be in PYTHONPATH or use relative imports carefully.
 
-# Add freqtrade_app/src to sys.path to allow direct imports of modules within src
-# This assumes ft_runner.py is in freqtrade_app/
-APP_BASE_DIR = Path(__file__).resolve().parent
-SRC_DIR = APP_BASE_DIR / "src"
-sys.path.insert(0, str(SRC_DIR))
-
 try:
-    from src import ft_config_loader
-    from src import ft_config_generator
+    from ft_user_data.strategies.src import ft_config_loader
+    from ft_user_data.strategies.src import ft_config_generator
 except ImportError as e:
     print(f"Error importing ft_config_loader or ft_config_generator: {e}")
-    print(f"Ensure that {SRC_DIR} is accessible and contains these modules.")
+    print(
+        f"Ensure that {ft_user_data_strategies / 'src'} is accessible and contains these modules."
+    )
     print(f"Current sys.path: {sys.path}")
     sys.exit(1)
 
@@ -79,11 +87,13 @@ def main():
     selected_env = args.env
 
     print(f"--- Freqtrade Runner Initialized for Environment: {selected_env} ---")
-    print(f"Application Base Directory (APP_BASE_DIR): {APP_BASE_DIR}")
+    # APP_BASE_DIR is no longer needed for sys.path manipulation here
+    # print(f"Application Base Directory (APP_BASE_DIR): {APP_BASE_DIR}")
 
     # 1. Load Configurations
     print(f"\n1. Loading configurations for env '{selected_env}'...")
     try:
+        # ft_config_loader is now imported from the new location via sys.path
         global_settings = ft_config_loader.get_global_settings(env=selected_env)
         # Strategy settings are loaded by Freqtrade itself via its parameter handling
     except FileNotFoundError as e:
@@ -103,8 +113,11 @@ def main():
     generated_config_filename = "ft_generated_config.json"
     # Output path for ft_generated_config.json should be inside APP_BASE_DIR (freqtrade_app/)
     # so Freqtrade can find it when CWD is APP_BASE_DIR.
+    # APP_BASE_DIR needs to be defined again here if used for paths
+    APP_BASE_DIR = Path(__file__).resolve().parent
     generated_config_path = APP_BASE_DIR / generated_config_filename
     try:
+        # ft_config_generator is now imported from the new location via sys.path
         ft_config_generator.generate_freqtrade_config_json(
             global_settings, output_path=generated_config_path
         )
@@ -124,8 +137,8 @@ def main():
             "Warning: LIQUIDATION_API_BASE_URL not found in settings. Liquidation fetching in strategy might fail."
         )
 
-    # 4. Ensure User Data Directory Structure and Copy Strategy
-    print("\n4. Ensuring user data directory structure and copying strategy...")
+    # 4. Ensure User Data Directory Structure
+    print("\n4. Ensuring user data directory structure...")
     user_data_dir_name = global_settings.freqtrade_config.get(
         "user_data_dir", "ft_user_data"
     )
@@ -147,20 +160,10 @@ def main():
         strategies_path.mkdir(parents=True, exist_ok=True)
         print(f"User data strategies directory ensured at: {strategies_path}")
 
-        # 4.A. Copy Strategy File to user_data/strategies
-        print("\n4.A. Copying strategy file...")
-        source_strategy_file = (
-            APP_BASE_DIR / "src" / "strategies" / "follow-the-flow" / "strategy.py"
-        )
-        destination_strategy_file = strategies_path / "FollowTheFlowStrategy.py"
-        shutil.copy2(source_strategy_file, destination_strategy_file)
-        print(f"Strategy file copied to: {destination_strategy_file}")
+        # Removed: 4.A. Copy Strategy File to user_data/strategies
 
-    except FileNotFoundError:
-        print(f"Error: Source strategy file not found at {source_strategy_file}")
-        sys.exit(1)
     except Exception as e:
-        print(f"Error creating user data directories or copying strategy file: {e}")
+        print(f"Error creating user data directories: {e}")
         sys.exit(1)
 
     # 5. Download OHLCV Data
@@ -178,12 +181,13 @@ def main():
         # Add other flags if needed, e.g., --days, --pairs
     ]
     # Prepare environment with PYTHONPATH for Freqtrade subprocesses
-    python_path_addition = str(APP_BASE_DIR.parent)  # Project root
+    # PYTHONPATH should now include the project root and the new strategies directory
+    project_root = APP_BASE_DIR.parent
     current_pythonpath = os.environ.get("PYTHONPATH", "")
     new_pythonpath = (
-        f"{python_path_addition}{os.pathsep}{current_pythonpath}"
+        f"{project_root}{os.pathsep}{ft_user_data_strategies}{os.pathsep}{current_pythonpath}"
         if current_pythonpath
-        else python_path_addition
+        else f"{project_root}{os.pathsep}{ft_user_data_strategies}"
     )
     custom_env_for_freqtrade = {"PYTHONPATH": new_pythonpath}
 

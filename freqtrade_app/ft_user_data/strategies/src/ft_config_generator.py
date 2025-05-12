@@ -3,10 +3,12 @@ from pathlib import Path
 from dynaconf import Dynaconf
 
 # Assuming ft_config_loader is in the same directory or accessible via PYTHONPATH
-from ft_config_loader import get_global_settings, APP_BASE_DIR
+import ft_config_loader
 
 # Default path for the generated Freqtrade config, relative to APP_BASE_DIR
-DEFAULT_GENERATED_CONFIG_PATH = APP_BASE_DIR / "ft_generated_config.json"
+DEFAULT_GENERATED_CONFIG_PATH = (
+    ft_config_loader.APP_BASE_DIR / "ft_generated_config.json"
+)
 
 
 def generate_freqtrade_config_json(
@@ -91,12 +93,12 @@ def generate_freqtrade_config_json(
 
 if __name__ == "__main__":
     # Example usage:
-    print(f"Application base directory: {APP_BASE_DIR}")
+    print(f"Application base directory: {ft_config_loader.APP_BASE_DIR}")
     print(f"Default generated config path: {DEFAULT_GENERATED_CONFIG_PATH}")
 
     # Load settings for a specific environment, e.g., "dev"
     current_env = "dev"  # or "default"
-    global_conf = get_global_settings(env=current_env)
+    global_conf = ft_config_loader.get_global_settings(env=current_env)
 
     print(f"\nLoaded global settings for environment: '{current_env}'")
     print(f"  Exchange from settings: {global_conf.freqtrade_config.exchange_name}")

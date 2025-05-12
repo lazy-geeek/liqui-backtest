@@ -20,16 +20,15 @@ from freqtrade.strategy import (
 # Or, more robustly, use relative imports if this becomes part of a package recognized by freqtrade
 # from ...src import liquidation_fetcher, liquidation_processor # Example if src is a package level up
 # For now, direct import assuming PYTHONPATH is set or they are in a discoverable path
-try:
-    from freqtrade_app.src import liquidation_fetcher
-    from freqtrade_app.src import liquidation_processor
-    from freqtrade_app.src.ft_config_loader import get_global_settings  # For API URL
-except (
-    ImportError
-):  # Fallback for local execution if freqtrade_app is the root for PYTHONPATH
-    import liquidation_fetcher
-    import liquidation_processor
-    from ft_config_loader import get_global_settings
+import sys
+from pathlib import Path
+
+ft_user_data_strategies = Path("ft_user_data/strategies")
+sys.path.insert(0, str(ft_user_data_strategies))
+
+from src import liquidation_fetcher
+from src import liquidation_processor
+from src.ft_config_loader import get_global_settings
 
 
 class FollowTheFlowStrategy(IStrategy):
