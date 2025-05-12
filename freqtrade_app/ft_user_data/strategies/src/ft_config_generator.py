@@ -34,7 +34,9 @@ def generate_freqtrade_config_json(
             "secret": "",  # Placeholder
             "ccxt_config": {},
             "ccxt_async_config": {},
-            "pair_whitelist": ft_config.get("pair_whitelist", []),
+            "pair_whitelist": global_settings.get(
+                "freqtrade_config.pair_whitelist", []
+            ),
         },
         "stake_currency": ft_config.get("stake_currency", "USDT"),
         "stake_amount": ft_config.get("stake_amount", 1000),
