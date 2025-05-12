@@ -1,0 +1,52 @@
+{
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [
+            "BTC/USDT",
+            "ETH/USDT",
+            "ADA/USDT"
+        ]
+    },
+    "stake_currency": "USDT",
+    "stake_amount": 1000,
+    "dry_run": true,
+    "dry_run_wallet": 1000,
+    "tradable_balance_ratio": 1.0,
+    "dataformat_ohlcv": "feather",
+    "user_data_dir": "ft_user_data",
+    "strategy": "FollowTheFlowStrategy",
+    "timeframe": "5m",
+    "timerange": "20230101-20230131",
+    "max_open_trades": 1,
+    "ignore_roi_if_entry_signal": false,
+    "experimental": {
+        "use_sell_signal_for_stoploss": false
+    },
+    "use_exit_signal": true,
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0,
+        "check_depth_of_market": {
+            "enabled": false,
+            "bids_to_ask_delta": 0
+        }
+    },
+    "exit_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0
+    },
+    "exit_profit_only": false,
+    "pairlists": [
+        {
+            "method": "StaticPairList"
+        }
+    ]
+}

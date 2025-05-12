@@ -1,0 +1,34 @@
+[default.freqtrade_config]
+exchange_name = "binance"
+stake_currency = "USDT"
+stake_amount = 1000
+dry_run = true
+dataformat_ohlcv = "feather"
+user_data_dir = "ft_user_data" # Relative to freqtrade_app directory
+pair_whitelist = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+
+[default.backtest_settings]
+timeframe = "5m"
+timerange = "20230101-20230131"
+strategy_name = "FollowTheFlowStrategy"
+
+[default.api_settings]
+LIQUIDATION_API_BASE_URL = "YOUR_API_URL_HERE" # Placeholder, to be configured by user
+
+# Dev environment - can override default settings
+[dev.freqtrade_config]
+exchange_name = "binance"
+stake_currency = "USDT"
+stake_amount = 1000
+dry_run = true
+dataformat_ohlcv = "feather"
+user_data_dir = "ft_user_data"
+pair_whitelist = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+
+[dev.backtest_settings]
+timeframe = "5m"
+timerange = "20230101-20230131" # Example: use a shorter range for dev
+strategy_name = "FollowTheFlowStrategy"
+
+[dev.api_settings]
+LIQUIDATION_API_BASE_URL = "YOUR_DEV_API_URL_HERE" # Placeholder

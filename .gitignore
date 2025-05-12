@@ -176,10 +176,11 @@ todos.md
 
 backtest*.html
 PLAN.md
+TASKS.md
 
-backtesting_py/cache/
+**/cache/
 optimization_results/
-backtesting_py/backtest_results/
+**/backtest_results/
 
 *.csv
 optimization_plan.md
@@ -194,3 +195,4 @@ memory-bank/
 *.Identifier
 backtesting_py/archive/
 archiv/
+ft_user_data/

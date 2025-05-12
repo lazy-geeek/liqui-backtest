@@ -9,5 +9,6 @@ termcolor
 tqdm
 python-dotenv
 openpyxl
+freqtrade
 
 dynaconf[toml]

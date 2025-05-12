@@ -1,0 +1,431 @@
+import os
+import pandas as pd
+import requests
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import time
+from urllib.parse import urljoin
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+# Determine the base directory of the freqtrade_app.
+# This assumes liquidation_fetcher.py is in freqtrade_app/src/
+APP_BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_CACHE_DIR = APP_BASE_DIR / "cache" / "liquidations"
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+def _fetch_data_from_api_url(
+    url: str, params: dict = None, headers: dict = None
+) -> list:
+    """
+    Helper function to fetch data from a given URL with retries.
+    Assumes API returns a list of records (e.g., list of dicts).
+    """
+    response = requests.get(url, params=params, headers=headers, timeout=30)
+    response.raise_for_status()  # Raises HTTPError for bad responses (4XX or 5XX)
+    return response.json()  # Assumes API returns JSON that is a list of records
+
+
+def fetch_liquidations(
+    symbol: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    api_base_url: str,  # e.g., "https://fapi.binance.com/futures/data/allForceOrders"
+    cache_dir: Path = DEFAULT_CACHE_DIR,
+    # Binance API specific parameters (example)
+    limit_per_request: int = 1000,  # Max records per API call for Binance allForceOrders
+) -> pd.DataFrame:
+    """
+    Fetches liquidation data for a given symbol and date range from an API.
+
+    Args:
+        symbol: Trading symbol (e.g., "BTCUSDT" for Binance).
+        start_dt: Start datetime (timezone-aware UTC).
+        end_dt: End datetime (timezone-aware UTC).
+        api_base_url: The base URL for the liquidation data API endpoint.
+                      For Binance allForceOrders, this is typically "https://fapi.binance.com/futures/data/allForceOrders".
+        cache_dir: Directory to store and retrieve cached data.
+        limit_per_request: Maximum number of records to fetch per API call (API specific).
+
+    Returns:
+        A Pandas DataFrame with liquidation data, columns:
+        ['timestamp', 'side', 'price', 'quantity', 'symbol', 'origQty', 'executedQty', 'averagePrice', 'status', 'timeInForce', 'type', 'stopPrice', 'icebergQty', 'time', 'updateTime', 'isWorking', 'activatePrice', 'priceRate', 'cumQuote']
+        The 'timestamp' column is 'time' from Binance API, converted to datetime64[ns, UTC].
+        The 'side' column is 'side' from Binance API ('BUY' or 'SELL').
+        The 'price' column is 'price' from Binance API.
+        The 'quantity' column is 'origQty' from Binance API.
+    """
+    if start_dt.tzinfo is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+        raise ValueError("start_dt must be timezone-aware (UTC).")
+    if end_dt.tzinfo is None or end_dt.tzinfo.utcoffset(end_dt) is None:
+        raise ValueError("end_dt must be timezone-aware (UTC).")
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a filename that is less prone to issues with special characters or length
+    # Using only year-month for broader caching, specific time in filename for exact match
+    start_str = start_dt.strftime("%Y%m%d%H%M%S")
+    end_str = end_dt.strftime("%Y%m%d%H%M%S")
+    # Sanitize symbol for filename
+    sanitized_symbol = "".join(c if c.isalnum() else "_" for c in symbol)
+    cache_filename = f"liq_{sanitized_symbol}_{start_str}_{end_str}.parquet"
+    cache_filepath = cache_dir / cache_filename
+
+    if cache_filepath.exists():
+        try:
+            df = pd.read_parquet(cache_filepath)
+            # Ensure timestamp is in correct format after loading from cache
+            if not df.empty:
+                if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+                    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+                elif df["timestamp"].dt.tz is None:
+                    df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+            print(f"Loaded {len(df)} records from cache: {cache_filepath}")
+            return df
+        except Exception as e:
+            print(f"Error reading cache file {cache_filepath}: {e}. Fetching from API.")
+
+    all_api_data = []
+    current_start_time_ms = int(start_dt.timestamp() * 1000)
+    end_time_ms = int(end_dt.timestamp() * 1000)
+
+    # Calculate the end time for mock data generation (first 10 minutes of the initial start_dt)
+    mock_data_end_time_ms = int((start_dt + timedelta(minutes=10)).timestamp() * 1000)
+
+    print(
+        f"Fetching liquidations for {symbol} from {start_dt} to {end_dt} from API: {api_base_url}"
+    )
+
+    while current_start_time_ms < end_time_ms:
+        params = {
+            "symbol": symbol,
+            "startTime": current_start_time_ms,
+            # Binance API: If startTime and endTime are not sent, the most recent data is returned.
+            # If endTime is sent, it should be less than 7 days from startTime.
+            # To be safe, fetch in smaller chunks if the total range is large.
+            # Let's calculate a chunk_end_time_ms that is at most 1 day from current_start_time_ms
+            # or the overall end_time_ms, whichever is smaller.
+            # Binance API also states "If `startTime` and `endTime` are not sent, the most recent limit datas are returned."
+            # "If `startTime` and `endTime` are sent, time between startTime and endTime must be less than 7 days."
+            # "If `limit` is not sent, it defaults to 500, max 1000"
+        }
+
+        # Calculate potential end of this chunk (max 1 day, or overall end_dt)
+        # Binance API: "If `startTime` and `endTime` are sent, time between startTime and endTime must be less than 7 days."
+        # We will fetch data iteratively. If the API supports fetching up to `limit` records starting from `startTime`
+        # without an `endTime`, that's often simpler. If `endTime` is required, we manage chunks.
+        # For Binance `allForceOrders`, `endTime` is optional. If not provided, it fetches `limit` records from `startTime`.
+        # If `startTime` and `endTime` are provided, the interval must be <= 7 days.
+        # Let's use the approach of providing startTime and fetching `limit` records, then advancing startTime.
+
+        params["limit"] = limit_per_request
+
+        # For Binance, the endpoint is the api_base_url itself.
+        # url = api_base_url
+
+        try:
+            print(
+                f"Fetching chunk for {symbol}, startTime: {datetime.fromtimestamp(current_start_time_ms/1000, tz=timezone.utc)}, limit: {limit_per_request}"
+            )
+            # Example: data = _fetch_data_from_api_url(api_base_url, params=params)
+            # This is where you'd make the actual API call.
+            # For Binance allForceOrders, the structure is:
+            # [
+            #   {
+            #     "symbol": "BTCUSDT",
+            #     "price": "40000.00",
+            #     "origQty": "1.000",
+            #     "executedQty": "1.000",
+            #     "averagePrice": "40000.00",
+            #     "status": "FILLED",
+            #     "timeInForce": "IOC",
+            #     "type": "LIMIT",
+            #     "side": "SELL", // "BUY" for long liq, "SELL" for short liq
+            #     "stopPrice": "0.00",
+            #     "icebergQty": "0.00",
+            #     "time": 1618982400000, // Order time
+            #     "updateTime": 1618982400000,
+            #     "isWorking": true,
+            #     "activatePrice": "0",
+            #     "priceRate": "0",
+            #     "cumQuote": "40000"
+            #   }, ...
+            # ]
+            # For this exercise, we'll use a MOCK response.
+            # Replace this with actual `_fetch_data_from_api_url(api_base_url, params=params)`
+
+            # MOCK API RESPONSE - REMOVE FOR REAL IMPLEMENTATION
+            # Simulate fetching data. Return empty if current_start_time_ms is beyond the mock data window.
+            if current_start_time_ms >= mock_data_end_time_ms:
+                data = []
+            else:
+                mock_time = current_start_time_ms
+                data = []
+                for i in range(limit_per_request // 2):  # Mock some data points
+                    # Stop generating mock data if we exceed the mock data window or the overall end_time
+                    if mock_time >= mock_data_end_time_ms or mock_time >= end_time_ms:
+                        break
+                    data.append(
+                        {
+                            "symbol": symbol,
+                            "price": str(20000 + i),
+                            "origQty": str(1.0 + i * 0.1),
+                            "side": "BUY" if i % 2 == 0 else "SELL",
+                            "time": mock_time,
+                            # Add other fields as per Binance response if they are needed downstream
+                            "executedQty": str(1.0 + i * 0.1),
+                            "averagePrice": str(20000 + i),
+                            "status": "FILLED",
+                            "timeInForce": "IOC",
+                            "type": "LIMIT",
+                            "stopPrice": "0.00",
+                            "icebergQty": "0.00",
+                            "updateTime": mock_time,
+                            "isWorking": True,
+                            "activatePrice": "0",
+                            "priceRate": "0",
+                            "cumQuote": str((20000 + i) * (1.0 + i * 0.1)),
+                        }
+                    )
+                    mock_time += 60000  # Advance by 1 minute for mock data
+            # END MOCK API RESPONSE
+
+            if not data:
+                print(
+                    f"No more data from API for {symbol} at startTime {datetime.fromtimestamp(current_start_time_ms/1000, tz=timezone.utc)}"
+                )
+                break
+
+            all_api_data.extend(data)
+
+            # Advance start_time for the next fetch.
+            # The Binance API for allForceOrders returns data sorted by time ascending.
+            # So, the next startTime should be the time of the last record + 1ms.
+            last_record_time_ms = data[-1]["time"]
+            current_start_time_ms = last_record_time_ms + 1
+
+            # Respect API rate limits
+            time.sleep(
+                0.2
+            )  # Adjust as per API documentation (Binance is ~1200 requests/min)
+
+        except requests.exceptions.HTTPError as e:
+            print(
+                f"HTTP error fetching liquidations for {symbol}: {e.response.status_code} {e.response.text}"
+            )
+            if e.response.status_code in [
+                400,
+                401,
+                403,
+                404,
+                429,
+            ]:  # Client errors or rate limit
+                print(f"Client error or rate limit, stopping for {symbol}.")
+                break
+            # For other server errors, tenacity will retry. If retries fail, it will raise.
+            raise
+        except Exception as e:
+            print(f"Generic error fetching liquidations for {symbol}: {e}")
+            # Depending on the error, you might want to break or let tenacity handle it
+            raise
+
+    if not all_api_data:
+        df = pd.DataFrame()  # Return empty DataFrame if no data
+    else:
+        df = pd.DataFrame(all_api_data)
+
+    if not df.empty:
+        # Rename 'time' to 'timestamp' and convert to datetime
+        df.rename(columns={"time": "timestamp"}, inplace=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+
+        # Ensure correct dtypes for key columns (price, quantity)
+        # Binance API returns these as strings
+        df["price"] = pd.to_numeric(df["price"])
+        df["origQty"] = pd.to_numeric(
+            df["origQty"]
+        )  # This is the 'quantity' we care about
+        df.rename(columns={"origQty": "quantity"}, inplace=True)
+
+        # Select and order relevant columns (adjust as needed)
+        # Standardized columns: timestamp, side, price, quantity, symbol
+        # Keep other potentially useful columns from Binance if they exist
+        required_cols = ["timestamp", "side", "price", "quantity", "symbol"]
+        existing_cols = [col for col in required_cols if col in df.columns]
+
+        # Add any other columns that were returned and might be useful
+        other_cols = [col for col in df.columns if col not in existing_cols]
+        df = df[existing_cols + other_cols]
+
+        df = df.sort_values(by="timestamp").reset_index(drop=True)
+
+        # Filter by the precise date range, as API might return records slightly outside
+        # (especially if pagination is based on record count rather than strict time windows for each call)
+        df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] <= end_dt)]
+
+        print(f"Saving {len(df)} fetched liquidation records to {cache_filepath}")
+        df.to_parquet(cache_filepath, index=False)
+    else:
+        print(
+            f"No liquidation data found for {symbol} in the given range. Creating empty cache file."
+        )
+        # Save empty DataFrame to cache to avoid re-fetching for known empty periods
+        # Ensure schema matches if saving empty df
+        empty_df_cols = [
+            "timestamp",
+            "side",
+            "price",
+            "quantity",
+            "symbol",
+            "executedQty",
+            "averagePrice",
+            "status",
+            "timeInForce",
+            "type",
+            "stopPrice",
+            "icebergQty",
+            "updateTime",
+            "isWorking",
+            "activatePrice",
+            "priceRate",
+            "cumQuote",
+        ]  # Match potential columns from a full response
+        # Create an empty DataFrame with these columns and appropriate dtypes
+        schema = {
+            "timestamp": "datetime64[ns, UTC]",
+            "side": "object",
+            "price": "float64",
+            "quantity": "float64",
+            "symbol": "object",
+            "executedQty": "float64",
+            "averagePrice": "float64",
+            "status": "object",
+            "timeInForce": "object",
+            "type": "object",
+            "stopPrice": "float64",
+            "icebergQty": "float64",
+            "updateTime": "datetime64[ns, UTC]",
+            "isWorking": "bool",
+            "activatePrice": "object",
+            "priceRate": "object",
+            "cumQuote": "object",
+        }
+        df_empty = pd.DataFrame(columns=empty_df_cols)
+        for col, dtype in schema.items():
+            if col in df_empty.columns:  # Should always be true here
+                df_empty[col] = df_empty[col].astype(dtype)
+
+        df_empty.to_parquet(cache_filepath, index=False)
+        df = df_empty  # Return the typed empty DataFrame
+
+    return df
+
+
+if __name__ == "__main__":
+    # Example Usage (requires LIQUIDATION_API_BASE_URL to be set for a real API)
+    # For Binance Futures, the endpoint for all forced orders is:
+    # LIQUIDATION_API_URL = "https://fapi.binance.com/futures/data/allForceOrders"
+    # This is a public endpoint, no API key needed for this specific one.
+
+    # --- IMPORTANT ---
+    # The MOCK API response in fetch_liquidations is very basic.
+    # For a real test, you'd need to point to a live API or a more sophisticated mock server.
+    # The current mock only returns data for the first 10 minutes of the requested start_dt.
+
+    mock_api_url_for_testing = "https://fapi.binance.com/futures/data/allForceOrders"  # Using real URL but mock logic will intercept
+
+    print(f"APP_BASE_DIR: {APP_BASE_DIR}")
+    print(f"DEFAULT_CACHE_DIR: {DEFAULT_CACHE_DIR}")
+
+    test_symbol = "BTCUSDT"  # Binance uses "BTCUSDT", not "BTC/USDT" for this API
+    # Test with a small time range
+    # Ensure start and end are timezone-aware UTC
+    test_start_dt = datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    test_end_dt = datetime(2023, 1, 1, 1, 0, 0, tzinfo=timezone.utc)  # 1 hour of data
+
+    print(
+        f"\n--- Test Case 1: Fetching {test_symbol} from {test_start_dt} to {test_end_dt} ---"
+    )
+
+    # First run (should fetch from "API" - currently mock - and cache)
+    df_liquidations = fetch_liquidations(
+        symbol=test_symbol,
+        start_dt=test_start_dt,
+        end_dt=test_end_dt,
+        api_base_url=mock_api_url_for_testing,  # This is the base URL for the API endpoint itself
+    )
+    print(f"\nFetched data for {test_symbol} (run 1):")
+    if not df_liquidations.empty:
+        print(df_liquidations.head())
+        print(f"Shape: {df_liquidations.shape}")
+        print(f"Timestamp dtype: {df_liquidations['timestamp'].dtype}")
+        print(
+            f"Min timestamp: {df_liquidations['timestamp'].min()}, Max timestamp: {df_liquidations['timestamp'].max()}"
+        )
+    else:
+        print("No data returned.")
+
+    # Second run (should load from cache)
+    print(f"\n--- Test Case 2: Fetching {test_symbol} again (should use cache) ---")
+    df_liquidations_cached = fetch_liquidations(
+        symbol=test_symbol,
+        start_dt=test_start_dt,
+        end_dt=test_end_dt,
+        api_base_url=mock_api_url_for_testing,
+    )
+    print(f"\nFetched data for {test_symbol} (run 2 - cached):")
+    if not df_liquidations_cached.empty:
+        print(df_liquidations_cached.head())
+        print(f"Shape: {df_liquidations_cached.shape}")
+    else:
+        print("No data returned from cache.")
+
+    # Verify content is the same
+    if not df_liquidations.empty and not df_liquidations_cached.empty:
+        pd.testing.assert_frame_equal(
+            df_liquidations, df_liquidations_cached, check_dtype=False
+        )
+        print("\nCache test passed: Data from API and cache are identical.")
+    elif df_liquidations.empty and df_liquidations_cached.empty:
+        print("\nCache test passed: Both API and cache returned empty DataFrames.")
+    else:
+        print("\nCache test FAILED: Data mismatch or one is empty.")
+
+    # Test with a range that mock will return empty for initially
+    test_start_dt_no_data = datetime(2023, 1, 1, 2, 0, 0, tzinfo=timezone.utc)
+    test_end_dt_no_data = datetime(2023, 1, 1, 3, 0, 0, tzinfo=timezone.utc)
+    print(
+        f"\n--- Test Case 3: Fetching {test_symbol} for a range expected to be empty from mock API ---"
+    )
+    df_no_data = fetch_liquidations(
+        symbol=test_symbol,
+        start_dt=test_start_dt_no_data,
+        end_dt=test_end_dt_no_data,
+        api_base_url=mock_api_url_for_testing,
+    )
+    print(f"\nFetched data for {test_symbol} (run 3 - no data expected):")
+    if df_no_data.empty:
+        print("Correctly returned empty DataFrame.")
+        # Check if empty cache file was created
+        sanitized_symbol = "".join(c if c.isalnum() else "_" for c in test_symbol)
+        start_str = test_start_dt_no_data.strftime("%Y%m%d%H%M%S")
+        end_str = test_end_dt_no_data.strftime("%Y%m%d%H%M%S")
+        empty_cache_filename = f"liq_{sanitized_symbol}_{start_str}_{end_str}.parquet"
+        empty_cache_filepath = DEFAULT_CACHE_DIR / empty_cache_filename
+        if empty_cache_filepath.exists():
+            print(f"Empty cache file created at: {empty_cache_filepath}")
+            # Try loading it
+            df_loaded_empty = pd.read_parquet(empty_cache_filepath)
+            if df_loaded_empty.empty:
+                print("Successfully loaded empty DataFrame from cache.")
+                # Check schema of loaded empty df
+                print(f"Schema of loaded empty df: {df_loaded_empty.dtypes}")
+
+            else:
+                print("Error: Cache file for empty data is not empty.")
+        else:
+            print("Error: Empty cache file was not created.")
+
+    else:
+        print("Error: Expected empty DataFrame but got data.")
+        print(df_no_data.head())
