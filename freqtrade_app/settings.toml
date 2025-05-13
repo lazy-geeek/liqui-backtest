@@ -6,8 +6,8 @@ stake_currency = "USDT"
 stake_amount = 1000
 dry_run = true
 dataformat_ohlcv = "feather"
-user_data_dir = "ft_user_data"                        # Relative to freqtrade_app directory
-pair_whitelist = ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+user_data_dir = "ft_user_data"                                       # Relative to freqtrade_app directory
+pair_whitelist = ["BTC/USDT:USDT", "ETH/USDT:USDT", "ADA/USDT:USDT"]
 
 [default.backtest_settings]
 timeframe = "5m"
@@ -26,7 +26,7 @@ stake_amount = 1000
 dry_run = true
 dataformat_ohlcv = "feather"
 user_data_dir = "ft_user_data"
-pair_whitelist = ["BTC/USDT", "ETH/USDT"]
+pair_whitelist = ["BTC/USDT:USDT", "ETH/USDT:USDT"]
 
 [dev.backtest_settings]
 timeframe = "5m"

@@ -32,6 +32,9 @@ from src.ft_config_loader import get_global_settings
 
 
 class FollowTheFlowStrategy(IStrategy):
+    # Strategy configuration for futures trading
+    can_short = True
+
     # --- Strategy Parameters (Hyperoptable) ---
     # These will be loaded from the strategy's settings.toml by Freqtrade if defined there,
     # or can be optimized by Hyperopt.

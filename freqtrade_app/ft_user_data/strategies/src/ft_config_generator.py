@@ -28,6 +28,8 @@ def generate_freqtrade_config_json(
     bt_settings = global_settings.get("backtest_settings", {})
 
     config_data = {
+        "trading_mode": "futures",
+        "margin_mode": "isolated",
         "exchange": {
             "name": ft_config.get("exchange_name", "binance").lower(),
             "key": "",  # Placeholder, Freqtrade usually handles this via user_data_dir/config.json
