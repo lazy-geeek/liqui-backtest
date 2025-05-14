@@ -26,6 +26,16 @@ def _fetch_data_from_api_url(
     return response.json()  # Assumes API returns JSON that is a list of records
 
 
+def _transform_symbol(symbol: str) -> str:
+    """
+    Transform Freqtrade symbol format (BTC/USDT:USDT) to API format (BTCUSDT).
+    Handles both formats for backward compatibility.
+    """
+    if ":" in symbol:  # Freqtrade format (BTC/USDT:USDT)
+        return symbol.split("/")[0] + symbol.split(":")[0].split("/")[1]
+    return symbol  # Already in API format or unknown format
+
+
 def fetch_liquidations(
     symbol: str,
     start_dt: datetime,
@@ -63,8 +73,9 @@ def fetch_liquidations(
     # Using only year-month for broader caching, specific time in filename for exact match
     start_str = start_dt.strftime("%Y%m%d%H%M%S")
     end_str = end_dt.strftime("%Y%m%d%H%M%S")
-    # Sanitize symbol for filename
-    sanitized_symbol = "".join(c if c.isalnum() else "_" for c in symbol)
+    # Transform symbol to API format and sanitize for filename
+    api_symbol = _transform_symbol(symbol)
+    sanitized_symbol = "".join(c if c.isalnum() else "_" for c in api_symbol)
     cache_filename = f"liq_{sanitized_symbol}_{start_str}_{end_str}.parquet"
     cache_filepath = cache_dir / cache_filename
 
@@ -99,7 +110,7 @@ def fetch_liquidations(
 
     while current_start_time_ms < end_time_ms:
         params = {
-            "symbol": symbol,
+            "symbol": api_symbol,
             "startTime": current_start_time_ms,
             # Binance API: If startTime and endTime are not sent, the most recent data is returned.
             # If endTime is sent, it should be less than 7 days from startTime.
@@ -168,7 +179,7 @@ def fetch_liquidations(
                         break
                     data.append(
                         {
-                            "symbol": symbol,
+                            "symbol": api_symbol,
                             "price": str(20000 + i),
                             "origQty": str(1.0 + i * 0.1),
                             "side": "BUY" if i % 2 == 0 else "SELL",
