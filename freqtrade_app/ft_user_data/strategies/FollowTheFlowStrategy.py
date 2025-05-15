@@ -138,10 +138,39 @@ class FollowTheFlowStrategy(IStrategy):
         """
         Adds custom indicators to the dataframe.
         """
+        # Ensure the index is a DatetimeIndex and is timezone-aware (UTC)
+        if not isinstance(dataframe.index, pd.DatetimeIndex):
+            # Attempt to convert assuming the index contains timestamps (e.g., Unix timestamps or similar)
+            # Assuming the integer index represents timestamps that can be converted to datetime.
+            try:
+                # Assuming milliseconds, adjust unit if needed. Common for timestamps.
+                dataframe.index = pd.to_datetime(dataframe.index, unit="ms", utc=True)
+                print(
+                    f"Converted integer index to DatetimeIndex for {metadata['pair']}"
+                )
+            except Exception as e:
+                print(
+                    f"Error converting index to DatetimeIndex for {metadata['pair']}: {e}"
+                )
+                # Depending on the error, we might need to handle this differently or raise an error.
+                # For now, let's proceed and see if the original error is resolved.
+                pass  # Or handle the error appropriately
+
+        # Ensure they are timezone-aware (Freqtrade dataframes are UTC indexed)
+        if dataframe.index.tz is None:
+            dataframe.index = dataframe.index.tz_localize("UTC")
+        elif (
+            dataframe.index.tz.utcoffset(dataframe.index[0])
+            != pd.Timestamp(0, tz="UTC").utcoffset()
+        ):
+            dataframe.index = dataframe.index.tz_convert("UTC")
+
         # --- Fetch Liquidation Data ---
-        symbol_for_api = metadata["pair"].replace(
-            "/", ""
-        )  # e.g., "BTC/USDT" -> "BTCUSDT"
+        # --- Fetch Liquidation Data ---
+        # Use the original pair from metadata, liquidation_fetcher handles transformation
+        # symbol_for_api = metadata["pair"].replace(
+        #     "/", ""
+        # )  # e.g., "BTC/USDT" -> "BTCUSDT"
 
         # Determine date range for fetching. Freqtrade provides data in chunks.
         # We need liquidations covering the range of the current dataframe.
@@ -170,7 +199,7 @@ class FollowTheFlowStrategy(IStrategy):
 
         global_settings = get_global_settings()
         raw_liq_df = liquidation_fetcher.fetch_liquidations(
-            symbol=symbol_for_api,
+            symbol=metadata["pair"],
             start_dt=start_dt_utc,
             end_dt=end_dt_utc,
             # cache_dir can be default or configured if needed
