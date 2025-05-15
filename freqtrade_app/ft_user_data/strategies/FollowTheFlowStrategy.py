@@ -13,6 +13,7 @@ from freqtrade.strategy import (
     DecimalParameter,
     CategoricalParameter,
 )
+from freqtrade.exchange import timeframe_to_minutes
 
 # Assuming these modules are in freqtrade_app/src and Python's import system can find them
 # This might require setting PYTHONPATH or structuring as a package.
@@ -108,7 +109,7 @@ class FollowTheFlowStrategy(IStrategy):
     def startup_candle_count(self) -> int:
         # Calculate startup_candle_count dynamically based on average_lookback_period_days
         # and the strategy's timeframe.
-        timeframe_minutes = self.timeframe_to_minutes(self.timeframe)
+        timeframe_minutes = timeframe_to_minutes(self.timeframe)
         if timeframe_minutes == 0:  # Should not happen with valid timeframes
             return 200  # Fallback default
 
