@@ -12,7 +12,9 @@ DEFAULT_GENERATED_CONFIG_PATH = (
 
 
 def generate_freqtrade_config_json(
-    global_settings: Dynaconf, output_path: Path = DEFAULT_GENERATED_CONFIG_PATH
+    global_settings: Dynaconf,
+    output_path: Path = DEFAULT_GENERATED_CONFIG_PATH,
+    mode: str = "backtest",
 ) -> Path:
     """
     Generates a Freqtrade-compatible config.json file from global settings.
@@ -42,7 +44,7 @@ def generate_freqtrade_config_json(
         },
         "stake_currency": ft_config.get("stake_currency", "USDT"),
         "stake_amount": ft_config.get("stake_amount", 1000),
-        "dry_run": ft_config.get("dry_run", True),
+        "dry_run": mode == "paper" or ft_config.get("dry_run", True),
         "dry_run_wallet": 1000,
         "tradable_balance_ratio": 1.0,
         "dataformat_ohlcv": ft_config.get("dataformat_ohlcv", "feather"),

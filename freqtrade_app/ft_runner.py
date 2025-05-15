@@ -63,8 +63,16 @@ def main():
         default="default",
         help="Environment to load from settings.toml (e.g., default, dev). Default: 'default'.",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        required=True,
+        choices=["backtest", "paper", "live"],
+        help="Execution mode: backtest, paper, or live trading",
+    )
     args = parser.parse_args()
     selected_env = args.env
+    selected_mode = args.mode
 
     print(f"--- Freqtrade Runner Initialized for Environment: {selected_env} ---")
     # APP_BASE_DIR is no longer needed for sys.path manipulation here
@@ -99,7 +107,7 @@ def main():
     try:
         # ft_config_generator is now imported from the new location via sys.path
         ft_config_generator.generate_freqtrade_config_json(
-            global_settings, output_path=generated_config_path
+            global_settings, output_path=generated_config_path, mode=selected_mode
         )
         print(f"Freqtrade 'config.json' generated at: {generated_config_path}")
     except Exception as e:
@@ -160,7 +168,10 @@ def main():
         if current_pythonpath
         else f"{project_root}{os.pathsep}{strategies_path}"
     )
-    custom_env_for_freqtrade = {"PYTHONPATH": new_pythonpath}
+    custom_env_for_freqtrade = {
+        "PYTHONPATH": new_pythonpath,
+        "TRADING_MODE": selected_mode,
+    }
 
     if not run_subprocess_command(
         download_command, working_dir=APP_BASE_DIR, extra_env=custom_env_for_freqtrade

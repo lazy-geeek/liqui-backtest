@@ -6,11 +6,78 @@ from pathlib import Path
 import time
 from urllib.parse import urljoin
 from tenacity import retry, stop_after_attempt, wait_exponential
+import asyncio
+import websockets
+import json
+from typing import Optional, Dict, List, Literal
 
 # Determine the base directory of the freqtrade_app.
 # This assumes liquidation_fetcher.py is in freqtrade_app/src/
 APP_BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_DIR = APP_BASE_DIR / "cache" / "liquidations"
+
+
+class WebSocketManager:
+    """
+    Manages websocket connection for real-time liquidation data.
+
+    Attributes:
+        symbol (str): Trading symbol being monitored
+        websocket_url (str): URL for websocket connection
+        connection (websockets.WebSocketClientProtocol): Active connection
+        data_buffer (list): Buffer for incoming liquidation events
+        running (bool): Flag indicating if connection is active
+
+    Methods:
+        connect(): Establish websocket connection
+        disconnect(): Close connection
+        listen(): Continuously process incoming messages
+        _process_message(): Parse and store liquidation data
+    """
+
+    def __init__(self, symbol: str, websocket_url: str):
+        self.symbol = symbol
+        self.websocket_url = websocket_url
+        self.connection = None
+        self.data_buffer = []
+        self.running = False
+
+    async def connect(self):
+        """Establish websocket connection."""
+        self.connection = await websockets.connect(self.websocket_url)
+        self.running = True
+
+    async def disconnect(self):
+        """Close websocket connection."""
+        if self.connection:
+            await self.connection.close()
+            self.running = False
+
+    async def listen(self):
+        """Continuously listen for messages and process them."""
+        try:
+            while self.running:
+                message = await self.connection.recv()
+                data = json.loads(message)
+                self._process_message(data)
+        except Exception as e:
+            print(f"WebSocket error: {e}")
+            await self.disconnect()
+
+    def _process_message(self, data: Dict):
+        """Process incoming websocket message."""
+        if "o" in data:  # Binance force order format
+            liquidation = {
+                "symbol": data["o"]["s"],
+                "side": data["o"]["S"],
+                "price": float(data["o"]["p"]),
+                "quantity": float(data["o"]["q"]),
+                "timestamp": pd.to_datetime(data["E"], unit="ms", utc=True),
+                "status": data["o"]["X"],
+                "type": data["o"]["o"],
+                "timeInForce": data["o"]["f"],
+            }
+            self.data_buffer.append(liquidation)
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -41,9 +108,33 @@ def fetch_liquidations(
     start_dt: datetime,
     end_dt: datetime,
     cache_dir: Path = DEFAULT_CACHE_DIR,
+    mode: Literal["backtest", "paper", "live"] = "backtest",
+    websocket_url: Optional[str] = None,
     # Binance API specific parameters (example)
     limit_per_request: int = 1000,  # Max records per API call for Binance allForceOrders
 ) -> pd.DataFrame:
+    """
+    Fetches liquidation data from API and optionally websocket stream.
+
+    Args:
+        symbol: Trading symbol (e.g., "BTCUSDT" for Binance)
+        start_dt: Start datetime (timezone-aware UTC)
+        end_dt: End datetime (timezone-aware UTC)
+        cache_dir: Directory to store cached data
+        mode: Trading mode - "backtest", "paper", or "live"
+        websocket_url: URL for real-time liquidation stream
+        limit_per_request: Max records per API call
+
+    Returns:
+        pd.DataFrame: Historical data for backtest mode
+        LiveDataFrame: Wrapper with get_latest() method for live modes
+
+    Notes:
+        - For live modes, the returned object has a get_latest() method
+          to retrieve new data from the websocket stream
+        - The websocket connection remains open until the returned object
+          is garbage collected or explicitly disconnected
+    """
     """
     Fetches liquidation data for a given symbol and date range from an API.
 
@@ -89,6 +180,34 @@ def fetch_liquidations(
                 elif df["timestamp"].dt.tz is None:
                     df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
             print(f"Loaded {len(df)} records from cache: {cache_filepath}")
+            # For live modes, combine historical and real-time data
+            if mode in ["live", "paper"] and ws_manager:
+                # Get any real-time data received while fetching historical
+                if ws_manager.data_buffer:
+                    realtime_df = pd.DataFrame(ws_manager.data_buffer)
+                    df = pd.concat([df, realtime_df], ignore_index=True)
+
+                # Return a wrapper DataFrame that continues to receive updates
+                class LiveDataFrame:
+                    def __init__(self, df: pd.DataFrame, ws_manager: WebSocketManager):
+                        self._df = df
+                        self.ws_manager = ws_manager
+
+                    def __getattr__(self, name):
+                        return getattr(self._df, name)
+
+                    def get_latest(self) -> pd.DataFrame:
+                        """Get DataFrame with latest data including new websocket updates"""
+                        if self.ws_manager.data_buffer:
+                            new_data = pd.DataFrame(self.ws_manager.data_buffer)
+                            self._df = pd.concat(
+                                [self._df, new_data], ignore_index=True
+                            )
+                            self.ws_manager.data_buffer.clear()
+                        return self._df
+
+                return LiveDataFrame(df, ws_manager)
+
             return df
         except Exception as e:
             print(f"Error reading cache file {cache_filepath}: {e}. Fetching from API.")
@@ -103,6 +222,20 @@ def fetch_liquidations(
     api_base_url = os.getenv("LIQUIDATION_API_BASE_URL")
     if not api_base_url:
         raise ValueError("LIQUIDATION_API_BASE_URL environment variable is not set")
+
+    # For live/paper trading, start websocket connection
+    ws_manager = None
+    if mode in ["live", "paper"]:
+        websocket_url = f"wss://fstream.binance.com/ws/{api_symbol.lower()}@forceOrder"
+        ws_manager = WebSocketManager(symbol, websocket_url)
+        asyncio.get_event_loop().run_until_complete(ws_manager.connect())
+
+        # Start websocket listener in background
+        async def run_ws():
+            await ws_manager.listen()
+
+        asyncio.create_task(run_ws())
+        print(f"WebSocket connection established for {symbol}")
 
     print(
         f"Fetching liquidations for {symbol} from {start_dt} to {end_dt} from API: {api_base_url}"
@@ -241,10 +374,28 @@ def fetch_liquidations(
             # Depending on the error, you might want to break or let tenacity handle it
             raise
 
+    # Create DataFrame from historical API data
     if not all_api_data:
         df = pd.DataFrame()  # Return empty DataFrame if no data
     else:
         df = pd.DataFrame(all_api_data)
+
+    # For live/paper modes, start websocket connection
+    ws_manager = None
+    if mode in ["live", "paper"] and websocket_url:
+        try:
+            ws_manager = WebSocketManager(symbol, websocket_url)
+            asyncio.get_event_loop().run_until_complete(ws_manager.connect())
+
+            # Start websocket listener in background
+            async def run_ws():
+                await ws_manager.listen()
+
+            asyncio.create_task(run_ws())
+
+            print(f"WebSocket connection established for {symbol}")
+        except Exception as e:
+            print(f"Failed to establish WebSocket connection: {e}")
 
     if not df.empty:
         # Rename 'time' to 'timestamp' and convert to datetime
